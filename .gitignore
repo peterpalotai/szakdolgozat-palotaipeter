@@ -1,0 +1,16 @@
+# Credentials and Secrets
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+*.env
+
+# Streamlit Secrets
+.streamlit
+.streamlit/secrets.toml
+
+# Database Configuration
+database_config.py
+db_config.py
+config.py

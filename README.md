@@ -1,7 +1,21 @@
 # szakdolgozat-palotaipeter
-Ez a repositor tartalmazza a szakdolgozatomban megvalósított alkalamzást, mely a különböző féle gazdasági számítások és vizualizációk megjelenéséért felelős.
+Ez a repository tartalmazza a szakdolgozatomban megvalósított alkalamzást, mely a különböző féle gazdasági számítások és vizualizációk megjelenéséért felelős.
 
-2. **Install required packages:**
+## Setup utasítások
+
+```bash
+pip install -r requirements.txt
 ```
-pip install streamlit psycopg2-binary pandas sqlalchemy
+
+```toml
+[database]
+host = "your-postgresql-host"
+port = "5432"
+database = "your-database-name"
+user = "your-username"
+password = "your-password"
+```
+
+```bash
+streamlit run dfv-dashboard.py
 ```
