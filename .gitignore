@@ -14,3 +14,7 @@
 database_config.py
 db_config.py
 config.py
+
+__pycache__/
+*.pyc
+*.pyo
