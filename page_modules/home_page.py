@@ -71,7 +71,7 @@ def show_home_page():
         )
     
     with col2:
-        st.write("")  # Üres sor a szép elrendezéshez
+        st.write("")
     
     # Session state inicializálása a lapozáshoz
     if f"offset_{selected_table}" not in st.session_state:
@@ -84,7 +84,7 @@ def show_home_page():
         st.session_state[f"offset_{selected_table}"] = 0
         st.session_state[f"last_page_size_{selected_table}"] = page_size
     
-    # Adatok lekérdezése - automatikusan fut
+    # Adatok lekérdezése
     try:
         query = f"SELECT * FROM {selected_table} LIMIT {page_size} OFFSET {st.session_state[f'offset_{selected_table}']}"
         result = execute_query(query)
