@@ -76,16 +76,31 @@ def show_home_page():
     
 
     
-    # Elemek száma beállítása
+    # Elemek száma beállítása - globális érték minden táblához
     col1, col2 = st.columns([1, 2])
     
+    # Globális page size inicializálása
+    if "global_page_size" not in st.session_state:
+        st.session_state.global_page_size = 5
+    
     with col1:
+        # Jelenlegi globális page_size értékének indexe
+        current_page_size = st.session_state.global_page_size
+        page_size_options = [5, 15, 25]
+        try:
+            current_index = page_size_options.index(current_page_size)
+        except ValueError:
+            current_index = 0
+        
         page_size = st.selectbox(
             "Elemek száma:",
-            [5, 15, 25],
-            index=0,
-            key="page_size_selector"
+            page_size_options,
+            index=current_index,
+            key="global_page_size_selector"
         )
+        
+        # Globális page size frissítése session state-ben
+        st.session_state.global_page_size = page_size
     
     with col2:
         st.write("")
@@ -94,16 +109,11 @@ def show_home_page():
     if f"offset_{selected_table}" not in st.session_state:
         st.session_state[f"offset_{selected_table}"] = 0
     
-    # Ha megváltozott a page_size, reseteljük az offset-et
-    if f"last_page_size_{selected_table}" not in st.session_state:
-        st.session_state[f"last_page_size_{selected_table}"] = page_size
-    elif st.session_state[f"last_page_size_{selected_table}"] != page_size:
-        st.session_state[f"offset_{selected_table}"] = 0
-        st.session_state[f"last_page_size_{selected_table}"] = page_size
-    
     # Adatok lekérdezése
     try:
-        query = f"SELECT * FROM {selected_table} LIMIT {page_size} OFFSET {st.session_state[f'offset_{selected_table}']}"
+        # Globális page size lekérése session state-ből
+        current_page_size = st.session_state.global_page_size
+        query = f"SELECT * FROM {selected_table} LIMIT {current_page_size} OFFSET {st.session_state[f'offset_{selected_table}']}"
         result = execute_query(query)
         
         if result:
@@ -157,25 +167,28 @@ def show_home_page():
             
             with col3:
                 if st.button("⬅️"):
-                    if st.session_state[f"offset_{selected_table}"] >= page_size:
-                        st.session_state[f"offset_{selected_table}"] -= page_size
+                    current_page_size = st.session_state.global_page_size
+                    if st.session_state[f"offset_{selected_table}"] >= current_page_size:
+                        st.session_state[f"offset_{selected_table}"] -= current_page_size
                         st.rerun()
             
             with col4:
                 if st.button("➡️"):
-                    st.session_state[f"offset_{selected_table}"] += page_size
+                    current_page_size = st.session_state.global_page_size
+                    st.session_state[f"offset_{selected_table}"] += current_page_size
                     st.rerun()
             
             with col5:
                 if st.button("⏭️"):
                     # Az utolsó oldal kiszámítása
                     try:
+                        current_page_size = st.session_state.global_page_size
                         # Összes rekord számának lekérdezése
                         count_query = f"SELECT COUNT(*) FROM {selected_table}"
                         total_count = execute_query(count_query)[0][0]
                         
                         # Utolsó oldal offset számítása
-                        last_page_offset = (total_count // page_size) * page_size
+                        last_page_offset = (total_count // current_page_size) * current_page_size
                         st.session_state[f"offset_{selected_table}"] = last_page_offset
                         st.rerun()
                     except Exception as e:
@@ -189,13 +202,14 @@ def show_home_page():
             
             with col7:
                 # Jelenlegi oldal és összes oldal információ
-                current_page = (st.session_state[f"offset_{selected_table}"] // page_size) + 1
+                current_page_size = st.session_state.global_page_size
+                current_page = (st.session_state[f"offset_{selected_table}"] // current_page_size) + 1
             
                 # Összes oldal számának kiszámítása
                 try:
                     count_query = f"SELECT COUNT(*) FROM {selected_table}"
                     total_count = execute_query(count_query)[0][0]
-                    total_pages = (total_count + page_size - 1) // page_size  # Felfelé kerekítés
+                    total_pages = (total_count + current_page_size - 1) // current_page_size  # Felfelé kerekítés
                     st.write(f" **Oldal:** {current_page} / {total_pages}")
                 except Exception as e:
                     st.write(f"**Oldal:** {current_page}")
