@@ -2,9 +2,26 @@ import streamlit as st
 import pandas as pd
 from database import get_db_connection, test_db_connection, execute_query
 
-
-
 def show_home_page():
+    #CSS style, hogy a az oldalon megjelenő tartalom teljes szélességűek legyenek
+    st.markdown("""
+    <style>
+    .main .block-container {
+        max-width: 80rem;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .stMainBlockContainer {
+        max-width: 80rem !important;
+    }
+    
+    /* Ensure the styling persists on interactions */
+    .main .block-container > div {
+        max-width: 80rem;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     st.write("# DFV Dashboard")
     
@@ -65,7 +82,7 @@ def show_home_page():
     with col1:
         page_size = st.selectbox(
             "Elemek száma:",
-            [5, 10, 15, 20, 25, 50],
+            [5, 15, 25],
             index=0,
             key="page_size_selector"
         )
@@ -127,26 +144,29 @@ def show_home_page():
             
 
             
-            # Lapozó gombok
-            col1, col2, col3, col4, col5 = st.columns([0.1, 0.1, 0.1, 0.1,0.1])
+            
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 0.2, 0.2, 0.2, 0.2, 0.1, 0.3])
             
             with col1:
+                st.write("")  
+            
+            with col2:
                 if st.button("⏮️"):
                     st.session_state[f"offset_{selected_table}"] = 0
                     st.rerun()
             
-            with col2:
+            with col3:
                 if st.button("⬅️"):
                     if st.session_state[f"offset_{selected_table}"] >= page_size:
                         st.session_state[f"offset_{selected_table}"] -= page_size
                         st.rerun()
             
-            with col3:
+            with col4:
                 if st.button("➡️"):
                     st.session_state[f"offset_{selected_table}"] += page_size
                     st.rerun()
             
-            with col4:
+            with col5:
                 if st.button("⏭️"):
                     # Az utolsó oldal kiszámítása
                     try:
@@ -164,11 +184,14 @@ def show_home_page():
                         st.session_state[f"offset_{selected_table}"] = 1000
                         st.rerun()
             
-            with col5:
+            with col6:
+                st.write("")  
+            
+            with col7:
                 # Jelenlegi oldal és összes oldal információ
                 current_page = (st.session_state[f"offset_{selected_table}"] // page_size) + 1
             
-            # Összes oldal számának kiszámítása
+                # Összes oldal számának kiszámítása
                 try:
                     count_query = f"SELECT COUNT(*) FROM {selected_table}"
                     total_count = execute_query(count_query)[0][0]
