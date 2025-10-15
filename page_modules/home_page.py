@@ -6,23 +6,13 @@ from datetime import datetime, timedelta
 from database import get_db_connection, test_db_connection, execute_query
 
 def show_home_page():
-    #CSS style, hogy a az oldalon megjelenő tartalom teljes szélességűek legyenek
-    st.markdown("""
+    #CSS style betöltése külső fájlból
+    with open('styles.css', 'r', encoding='utf-8') as f:
+        css_content = f.read()
+    
+    st.markdown(f"""
     <style>
-    .main .block-container {
-        max-width: 80rem;
-        padding-left: 1rem;
-        padding-right: 1rem;
-    }
-    
-    .stMainBlockContainer {
-        max-width: 80rem !important;
-    }
-    
-    /* Ensure the styling persists on interactions */
-    .main .block-container > div {
-        max-width: 80rem;
-    }
+    {css_content}
     </style>
     """, unsafe_allow_html=True)
     
@@ -254,7 +244,7 @@ def show_home_page():
     st.write("---")
     st.write("##  Historikus adatok vizuális lekérése")
     
-    # Plot canvas mindig megjelenik, az adatok lekérdezése nélkül is
+    # Plot canvas mindig megjelenik
     if 'df' in locals() and df is not None and not df.empty:
         # Oszlopnevek kiválasztása
         numeric_columns = []
@@ -279,7 +269,7 @@ def show_home_page():
             with col2:
                 time_interval = st.selectbox(
                     "Időintervallum:",
-                    ["Utolsó 1 óra", "Utolsó 3 óra", "Utolsó 12 óra", "Utolsó 1 nap", "Utolsó 3 nap", "Egyedi időtartam"],
+                    ["1 óra", "3 óra", "12 óra", "1 nap", "3 nap","7 nap", "Egyedi időtartam"],
                     key="time_interval_selector"
                 )
             
@@ -294,39 +284,55 @@ def show_home_page():
                 with col2:
                     custom_end_time = st.date_input("Befejező dátum:", key="custom_end_date")
             
+            # Automatikus diagram generálás oszlop vagy időintervallum váltáskor
+            # Session state inicializálása a diagram adatokhoz
+            if "chart_data_cache" not in st.session_state:
+                st.session_state.chart_data_cache = {}
             
-            if st.button("Lekérdezés", use_container_width=True):
+            # Cache kulcs létrehozása a jelenlegi beállítások alapján
+            cache_key = f"{selected_table}_{selected_column}_{time_interval}"
+            if time_interval == "Egyedi időtartam":
+                cache_key += f"_{custom_start_time}_{custom_end_time}"
+            
+            # Ha van cache-elt adat és nem változtak a beállítások, azt használjuk
+            if cache_key in st.session_state.chart_data_cache:
+                chart_data = st.session_state.chart_data_cache[cache_key]
+            else:
+                # Új adatok lekérdezése
                 try:
                     # Időintervallumok megadása
                     last_data_time = datetime(2025, 8, 21, 23, 45, 0) 
                     first_data_time = datetime(2024, 8, 19, 8, 0, 0)
                     
-                    if time_interval == "Utolsó 1 óra":
+                    if time_interval == "1 óra":
                         start_time = last_data_time - timedelta(hours=1)
-                    elif time_interval == "Utolsó 3 óra":
+                    elif time_interval == "3 óra":
                         start_time = last_data_time - timedelta(hours=3)
-                    elif time_interval == "Utolsó 12 óra":
+                    elif time_interval == "12 óra":
                         start_time = last_data_time - timedelta(hours=12)
-                    elif time_interval == "Utolsó 1 nap":
+                    elif time_interval == "1 nap":
                         start_time = last_data_time - timedelta(days=1)
-                    elif time_interval == "Utolsó 3 nap":
+                    elif time_interval == "3 nap":
                         start_time = last_data_time - timedelta(days=3)
+                    elif time_interval == "7 nap":
+                        start_time = last_data_time - timedelta(days=7)
                     elif time_interval == "Egyedi időtartam":
                         if custom_start_time and custom_end_time:
                             start_time = datetime.combine(custom_start_time, datetime.min.time())
                             end_time = datetime.combine(custom_end_time, datetime.max.time())
                         else:
                             st.error("Válassz ki kezdő és befejező dátumot!")
+                            chart_data = None
+                        if chart_data is None:
                             st.stop()
                     else:
                         start_time = last_data_time - timedelta(hours=1)
                     
-                    # Biztosítjuk, hogy ne menjünk az adathalmaz kezdete előtt
                     if start_time < first_data_time:
                         start_time = first_data_time
                     
                     # Adatok lekérdezése az időintervallum alapján
-                    if time_interval == "Egyedi időtartam":
+                    if time_interval == "Egyedi időtartam" and custom_start_time and custom_end_time:
                         query = f"""
                         SELECT * FROM {selected_table} 
                         WHERE DATE(date) BETWEEN '{start_time.strftime('%Y-%m-%d')}' AND '{end_time.strftime('%Y-%m-%d')}'
@@ -342,90 +348,77 @@ def show_home_page():
                     
                     chart_data = execute_query(query)
                     
-                    if chart_data:
-                        # DataFrame létrehozása a diagramhoz
-                        chart_df = pd.DataFrame(chart_data)
-                        
-                        # Oszlopnevek beállítása
-                        chart_df.columns = ["ID", "Dátum", "Idő", "Harmatpont (°C)", "Hőmérséklet (°C)", 
-                                          "Áramerősség (A)", "Feszültség (V)", "Teljesítmény (W)", 
-                                          "Relatív páratartalom (%)", "Külső páratartalom (%)", "Külső hőmérséklet (°C)"]
-                        
-                        # Dátum-idő oszlop kombinálása
-                        chart_df['Dátum_Idő'] = pd.to_datetime(chart_df['Dátum'].astype(str) + ' ' + chart_df['Idő'].astype(str))
-                        
-                        # Kiválasztott oszlop adatainak előkészítése
-                        chart_df[selected_column] = pd.to_numeric(chart_df[selected_column], errors='coerce')
-                        
-                        # Vonaldiagram létrehozása
-                        fig = go.Figure()
-                        
-                        fig.add_trace(go.Scatter(
-                            x=chart_df['Dátum_Idő'],
-                            y=chart_df[selected_column],
-                            mode='lines+markers',
-                            name=selected_column,
-                            line=dict(width=2),
-                            marker=dict(size=4)
-                        ))
-                        
-                        fig.update_layout(
-                            title=f"{selected_column} változása az időben",
-                            xaxis_title="Dátum és idő",
-                            yaxis_title=selected_column,
-                            hovermode='x unified',
-                            template="plotly_white"
-                        )
-                        
-                        # X tengely formázása
-                        fig.update_xaxes(
-                            tickformat="%m-%d %H:%M",
-                            tickangle=45
-                        )
-                        
-                        st.plotly_chart(fig, use_container_width=True)
-                        
-                        # Session state frissítése - diagram generálva
-                        st.session_state.chart_generated = True
-                        
-                        # Statisztikák megjelenítése
-                        col1, col2, col3, col4 = st.columns(4)
-                        
-                        with col1:
-                            st.metric("Minimális érték", f"{chart_df[selected_column].min():.2f}")
-                        with col2:
-                            st.metric("Maximális érték", f"{chart_df[selected_column].max():.2f}")
-                        with col3:
-                            st.metric("Átlag", f"{chart_df[selected_column].mean():.2f}")
-                        with col4:
-                            st.metric("Mérések száma", len(chart_df))
-                            
-                    else:
-                        st.warning("Nincs adat a kiválasztott időintervallumban.")
-                        
+                    # Cache-eljük az adatokat
+                    st.session_state.chart_data_cache[cache_key] = chart_data
+                    
                 except Exception as e:
                     st.error(f"Hiba a diagram generálásakor: {e}")
+                    chart_data = None
+            
+            # Diagram megjelenítése (cache-ből vagy új adatokból)
+            if chart_data:
+                # DataFrame létrehozása a diagramhoz
+                chart_df = pd.DataFrame(chart_data)
+                
+                # Oszlopnevek beállítása
+                chart_df.columns = ["ID", "Dátum", "Idő", "Harmatpont (°C)", "Hőmérséklet (°C)", 
+                                  "Áramerősség (A)", "Feszültség (V)", "Teljesítmény (W)", 
+                                  "Relatív páratartalom (%)", "Külső páratartalom (%)", "Külső hőmérséklet (°C)"]
+                
+                # Dátum-idő oszlop kombinálása
+                chart_df['Dátum_Idő'] = pd.to_datetime(chart_df['Dátum'].astype(str) + ' ' + chart_df['Idő'].astype(str))
+                
+                # Kiválasztott oszlop adatainak előkészítése
+                chart_df[selected_column] = pd.to_numeric(chart_df[selected_column], errors='coerce')
+                
+                # Vonaldiagram létrehozása
+                fig = go.Figure()
+                
+                fig.add_trace(go.Scatter(
+                    x=chart_df['Dátum_Idő'],
+                    y=chart_df[selected_column],
+                    mode='lines+markers',
+                    name=selected_column,
+                    line=dict(width=2),
+                    marker=dict(size=4)
+                ))
+                
+                fig.update_layout(
+                    title=f"{selected_column} változása az időben",
+                    xaxis_title="Dátum és idő",
+                    yaxis_title=selected_column,
+                    hovermode='x unified',
+                    template="plotly_white"
+                )
+                
+                # X tengely formázása
+                fig.update_xaxes(
+                    tickformat="%m-%d %H:%M",
+                    tickangle=45
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                st.session_state.chart_generated = True
+                
+                # Statisztikák megjelenítése
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Minimális érték", f"{chart_df[selected_column].min():.2f}")
+                with col2:
+                    st.metric("Maximális érték", f"{chart_df[selected_column].max():.2f}")
+                with col3:
+                    st.metric("Átlag", f"{chart_df[selected_column].mean():.2f}")
+                with col4:
+                    st.metric("Mérések száma", len(chart_df))
+                    
+            else:
+                st.warning("Nincs adat a kiválasztott időintervallumban.")
         else:
             st.info("Nincs numerikus oszlop a diagramokhoz.")
     else:
         st.info("Először válassz ki egy táblát a diagramok megjelenítéséhez.")
     
     
-    # Üres plotly csak akkor jelenik meg, ha még nem generáltunk diagramot
-    if not st.session_state.get("chart_generated", False):
-        empty_fig = go.Figure()
-        empty_fig.add_annotation(
-            text="Válassz ki egy táblát és oszlopot a diagram megjelenítéséhez",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False,
-            font=dict(size=16, color="gray")
-        )
-        empty_fig.update_layout(
-            xaxis=dict(visible=False),
-            yaxis=dict(visible=False),
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            height=400
-        )
-        
-        st.plotly_chart(empty_fig, use_container_width=True)
+  
