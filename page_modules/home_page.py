@@ -173,27 +173,49 @@ def show_home_page():
                         st.rerun()
             
             with col4:
-                if st.button("➡️"):
-                    current_page_size = st.session_state.global_page_size
-                    st.session_state[f"offset_{selected_table}"] += current_page_size
-                    st.rerun()
+                #Következő oldalon található-e még adat
+                current_page_size = st.session_state.global_page_size
+                current_offset = st.session_state[f"offset_{selected_table}"]
+                
+                
+                try:
+                    count_query = f"SELECT COUNT(*) FROM {selected_table}"
+                    total_count = execute_query(count_query)[0][0]
+                    
+                  
+                    next_offset = current_offset + current_page_size
+                    has_next_page = next_offset < total_count
+                    
+                    if st.button("➡️", disabled=not has_next_page):
+                        st.session_state[f"offset_{selected_table}"] = next_offset
+                        st.rerun()
+                except Exception as e:
+                    if st.button("➡️"):
+                        st.session_state[f"offset_{selected_table}"] += current_page_size
+                        st.rerun()
             
             with col5:
-                if st.button("⏭️"):
-                    # Az utolsó oldal kiszámítása
-                    try:
-                        current_page_size = st.session_state.global_page_size
-                        # Összes rekord számának lekérdezése
-                        count_query = f"SELECT COUNT(*) FROM {selected_table}"
-                        total_count = execute_query(count_query)[0][0]
-                        
-                        # Utolsó oldal offset számítása
-                        last_page_offset = (total_count // current_page_size) * current_page_size
+                #Utolsó oldalon van-e még adat
+                current_page_size = st.session_state.global_page_size
+                current_offset = st.session_state[f"offset_{selected_table}"]
+                
+                try:
+                    count_query = f"SELECT COUNT(*) FROM {selected_table}"
+                    total_count = execute_query(count_query)[0][0]
+                    
+                    # Utolsó oldal offset
+                    last_page_offset = (total_count // current_page_size) * current_page_size
+                    
+                    
+                    is_on_last_page = current_offset >= last_page_offset
+                    
+                    if st.button("⏭️", disabled=is_on_last_page):
                         st.session_state[f"offset_{selected_table}"] = last_page_offset
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"Hiba az utolsó oldal kiszámításakor: {e}")
-                        # Fallback: nagy szám használata
+                except Exception as e:
+                    st.error(f"Hiba az utolsó oldal kiszámításakor: {e}")
+                    
+                    if st.button("⏭️"):
                         st.session_state[f"offset_{selected_table}"] = 1000
                         st.rerun()
             
@@ -209,7 +231,7 @@ def show_home_page():
                 try:
                     count_query = f"SELECT COUNT(*) FROM {selected_table}"
                     total_count = execute_query(count_query)[0][0]
-                    total_pages = (total_count + current_page_size - 1) // current_page_size  # Felfelé kerekítés
+                    total_pages = (total_count + current_page_size - 1) // current_page_size 
                     st.write(f" **Oldal:** {current_page} / {total_pages}")
                 except Exception as e:
                     st.write(f"**Oldal:** {current_page}")
