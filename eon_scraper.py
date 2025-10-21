@@ -8,9 +8,8 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 
-@st.cache_data(ttl=3600)  # Cache for 1 hour
+@st.cache_data(ttl=86400)  # Eltárolja az adatokat a cache-be 24 óráig
 def scrape_eon_prices():
-    """Scrape only the two specific values from E.ON pricing page"""
     
     # XPaths for the two data points
     xpath1 = "/html/body/eon-ui-page-wrapper/main/div/eon-ui-section/eon-ui-grid-control/eon-ui-grid-control-column/eon-ui-grid-control/eon-ui-grid-control-column[1]/div[4]/table/tbody/tr[19]/td[3]"
@@ -27,20 +26,20 @@ def scrape_eon_prices():
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
         
-        # Load only the E.ON page
+     
         driver.get("https://www.eon.hu/hu/lakossagi/aram/arak.html")
         
-        # Wait for content to load
+        
         WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.TAG_NAME, "body"))
         )
         time.sleep(3)
         
-        # Get the two values
+       
         value1 = driver.find_element(By.XPATH, xpath1).text
         value2 = driver.find_element(By.XPATH, xpath2).text
         
-        # Debug: kiírjuk az árakat
+       
         print(f"Debug - Veszteségi ár: {value1}")
         print(f"Debug - Piaci ár: {value2}")
         
@@ -69,13 +68,10 @@ def calculate_energy_costs(consumption_data, loss_price, market_price):
         loss_price_num = float(loss_price.replace(',', '.').replace(' Ft/kWh', ''))
         market_price_num = float(market_price.replace(',', '.').replace(' Ft/kWh', ''))
         
-        # Napi átlagos fogyasztás konvertálása kWh-ba
-        # consumption_data = napi átlagos teljesítmény Watt-ban (15 perces mérések átlaga)
-        # W -> kW: osztás 1000-el
-        # kW -> kWh/nap: szorzás 24 órával (napi energia fogyasztás)
-        daily_consumption_kwh = (consumption_data / 1000) * 24  # W -> kW -> kWh/nap
+        #Napi átlagos fogyasztás konvertálása kWh-ba
+        daily_consumption_kwh = (consumption_data / 1000) * 24
         
-        # Napi költségek számítása
+        #Napi kültségek számítása
         daily_loss_cost = daily_consumption_kwh * loss_price_num
         daily_market_cost = daily_consumption_kwh * market_price_num
         
