@@ -15,7 +15,7 @@ def show_home_page():
     </style>
     """, unsafe_allow_html=True)
     
-    st.write("# DFV Monitoring")
+    st.write("# Főoldal")
     
     # Database connection test
     if st.button("Adatbázis teszt"):

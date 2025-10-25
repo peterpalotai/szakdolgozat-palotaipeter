@@ -2,6 +2,7 @@ import streamlit as st
 from page_modules.home_page import show_home_page
 from page_modules.energy_prediction_page import show_energy_prediction_page
 from page_modules.dfv_prediction_page import show_dfv_prediction_page
+from page_modules.savings_page import show_savings_page
 from eon_scraper import scrape_eon_prices
 
 
@@ -14,11 +15,16 @@ st.sidebar.markdown("---")
 if st.sidebar.button("🏠 Főoldal", use_container_width=True):
     st.session_state.page = "🏠 Főoldal"
 
+if st.sidebar.button("💰 Megtakarítások", use_container_width=True):
+    st.session_state.page = "💰 Megtakarítások"
+
 if st.sidebar.button("⚡ Energia és ár előrejelzés", use_container_width=True):
     st.session_state.page = "⚡ Energia és ár előrejelzés"
 
 if st.sidebar.button("🌡️ DFV be/kikapcsolás előrejelzés", use_container_width=True):
     st.session_state.page = "🌡️ DFV be/kikapcsolás előrejelzés"
+
+
 
 # Session state inicializálása
 if "page" not in st.session_state:
@@ -48,3 +54,5 @@ elif page == "⚡ Energia és ár előrejelzés":
     show_energy_prediction_page()
 elif page == "🌡️ DFV be/kikapcsolás előrejelzés":
     show_dfv_prediction_page()
+elif page == "💰 Megtakarítások":
+    show_savings_page()
