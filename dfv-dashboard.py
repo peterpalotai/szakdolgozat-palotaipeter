@@ -2,11 +2,12 @@ import streamlit as st
 from page_modules.home_page import show_home_page
 from page_modules.energy_prediction_page import show_energy_prediction_page
 from page_modules.dfv_prediction_page import show_dfv_prediction_page
-# CSS a Streamlit alapértelmezett oldal navigáció elrejtéséhez
+from eon_scraper import scrape_eon_prices
+
 
 
 # Oldalsáv navigáció
-st.sidebar.title("DFV Dashboard")
+st.sidebar.title("DFV Monitoring")
 st.sidebar.markdown("---")
 
 # Navigációs gombok
@@ -22,6 +23,20 @@ if st.sidebar.button("🌡️ DFV be/kikapcsolás előrejelzés", use_container_
 # Session state inicializálása
 if "page" not in st.session_state:
     st.session_state.page = "🏠 Főoldal"
+
+# E.ON árak automatikus lekérése az alkalmazás indításakor
+if 'loss_price' not in st.session_state or 'market_price' not in st.session_state:
+    with st.spinner("E.ON árak automatikus lekérése..."):
+        loss_price, market_price, error = scrape_eon_prices()
+    
+    if error:
+        st.session_state.loss_price = None
+        st.session_state.market_price = None
+        st.session_state.eon_error = error
+    else:
+        st.session_state.loss_price = loss_price
+        st.session_state.market_price = market_price
+        st.session_state.eon_error = None
 
 # Oldal változó
 page = st.session_state.page

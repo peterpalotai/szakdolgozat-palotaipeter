@@ -38,16 +38,13 @@ def show_energy_prediction_page():
     
     st.write("# Energia és ár előrejelzés")
     
-    if 'loss_price' not in st.session_state or 'market_price' not in st.session_state:
-        with st.spinner("E.ON által meghatározott energiaárak automatikus lekérése..."):
-            loss_price, market_price, error = scrape_eon_prices()
-        
-        if error:
-            st.error(f"Sikertelen művelet: {error}")
-        else:
-            st.session_state.loss_price = loss_price
-            st.session_state.market_price = market_price
-            st.success("Sikeres művelet!")
+    # E.ON árak státusz megjelenítése
+    if 'loss_price' in st.session_state and 'market_price' in st.session_state and st.session_state.loss_price is not None:
+        st.success("✅ E.ON árak elérhetők")
+    elif 'eon_error' in st.session_state and st.session_state.eon_error:
+        st.error(f"❌ E.ON árak lekérése sikertelen: {st.session_state.eon_error}")
+    else:
+        st.warning("⚠️ E.ON árak nem érhetők el")
     
     st.write("---")
     
