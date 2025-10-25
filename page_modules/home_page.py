@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from database import get_db_connection, test_db_connection, execute_query
 
 def show_home_page():
-    #CSS style betöltése külső fájlból
     with open('styles.css', 'r', encoding='utf-8') as f:
         css_content = f.read()
     
@@ -16,7 +15,7 @@ def show_home_page():
     </style>
     """, unsafe_allow_html=True)
     
-    st.write("# DFV Dashboard")
+    st.write("# DFV Monitoring")
     
     # Database connection test
     if st.button("Adatbázis teszt"):
