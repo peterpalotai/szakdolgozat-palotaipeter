@@ -4,6 +4,13 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
 from database import get_db_connection, test_db_connection, execute_query
+import toml
+import os
+import sys
+
+# Hozzáadja a szülő könyvtárat a path-hoz
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from api_call import fetch_co2_emission_data
 
 def show_home_page():
     with open('styles.css', 'r', encoding='utf-8') as f:
@@ -419,5 +426,156 @@ def show_home_page():
     else:
         st.info("Először válassz ki egy táblát a diagramok megjelenítéséhez.")
     
+    # CO2 kibocsátási adatok lekérdezése
+    st.write("---")
+    st.write("## CO2 Kibocsátási Adatok")
     
-  
+    days_to_show = 10
+    
+    # API kulcs betöltése a config.toml fájlból
+    try:
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config.toml')
+        config = toml.load(config_path)
+        api_key = config['api']['electricity_maps_token']
+    except Exception as e:
+        st.error(f"Hiányzik a config.toml fájl vagy az API kulcs. Hiba: {e}")
+        api_key = None
+    
+    # Session state inicializálása
+    if 'co2_cached_days' not in st.session_state:
+        st.session_state.co2_cached_days = 10
+    
+    # Automatikusan lekérdezi, ha nincsenek cached adatok
+    auto_refresh = ('co2_hourly_dataframe' not in st.session_state)
+    
+    if auto_refresh and api_key:
+        with st.spinner("Adatok lekérése folyamatban..."):
+            co2_hourly_df, co2_hourly_with_power, daily_co2_df = fetch_co2_emission_data(days_to_show, api_key)
+            
+            if co2_hourly_df is not None:
+                # Adatok cache-elése
+                st.session_state['co2_hourly_dataframe'] = co2_hourly_df
+                st.session_state['co2_cached_days'] = days_to_show
+                
+                if co2_hourly_with_power is not None and daily_co2_df is not None:
+                    st.session_state['co2_hourly_with_power'] = co2_hourly_with_power
+                    st.session_state['co2_daily_dataframe'] = daily_co2_df
+                    st.success(f"Sikeresen lekérve {len(co2_hourly_df)} órás CO2 adatpont és {len(daily_co2_df)} napi energia adat!")
+                else:
+                    st.warning("Nincs energiafogyasztási adat az adatbázisban az időszakra.")
+    
+    
+    if 'co2_hourly_dataframe' in st.session_state and st.session_state['co2_hourly_dataframe'] is not None:
+        co2_hourly_df = st.session_state['co2_hourly_dataframe']
+        
+        # Órás CO2 kibocsátás megjelenítése
+        if 'co2_hourly_with_power' in st.session_state and st.session_state['co2_hourly_with_power'] is not None:
+            co2_hourly_with_power = st.session_state['co2_hourly_with_power']
+            
+            st.write("### Tényleges Órás CO2 Kibocsátás")
+            
+            # Diagram 
+            fig2 = go.Figure()
+            
+            fig2.add_trace(go.Scatter(
+                x=co2_hourly_with_power['Dátum és idő'],
+                y=co2_hourly_with_power['Óras CO2 (kg)'],
+                mode='lines+markers',
+                name='Órás CO2 Kibocsátás',
+                line=dict(color='#4ECDC4', width=2),
+                marker=dict(size=4)
+            ))
+            
+            fig2.update_layout(
+                title="Órás CO2 Kibocsátás (Villamosenergia fogyasztás alapján)",
+                xaxis_title="Dátum és idő",
+                yaxis_title="CO2 Kibocsátás (kg)",
+                hovermode='x unified',
+                template="plotly_white",
+                height=500
+            )
+            
+            fig2.update_xaxes(
+                tickformat="%m-%d %H:%M",
+                tickangle=45
+            )
+            
+            st.plotly_chart(fig2, use_container_width=True)
+            
+            # Napi adatok - táblázatba szedve
+            if 'co2_daily_dataframe' in st.session_state and st.session_state['co2_daily_dataframe'] is not None:
+                daily_co2_df = st.session_state['co2_daily_dataframe']
+                
+                st.write("---")
+                st.write("### Napi CO2 Kibocsátás Összesített Adatai")
+                display_daily_df = daily_co2_df[['Dátum', 'Napi energia (kWh)', 'Átlag CO2 (g CO2/kWh)', 'Napi CO2 (kg)']].copy()
+                display_daily_df.columns = ['Dátum', 'Energia (kWh)', 'Átlagos CO2 Intenzitás (g/kWh)', 'Napi CO2 Kibocsátás (kg)']
+                st.dataframe(display_daily_df, use_container_width=True)
+            
+            # Statisztikák (órás bontásba)
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                total_co2_kg = co2_hourly_with_power['Óras CO2 (kg)'].sum()
+                st.metric("Összes CO2", f"{total_co2_kg:.2f} kg")
+            with col2:
+                avg_hourly_co2_kg = co2_hourly_with_power['Óras CO2 (kg)'].mean()
+                st.metric("Átlagos óras CO2", f"{avg_hourly_co2_kg:.4f} kg")
+            with col3:
+                max_hourly_co2_kg = co2_hourly_with_power['Óras CO2 (kg)'].max()
+                st.metric("Maximum óras CO2", f"{max_hourly_co2_kg:.4f} kg")
+        
+        # Napi összesített adatok megjelenítése
+        elif 'co2_daily_dataframe' in st.session_state and st.session_state['co2_daily_dataframe'] is not None:
+            daily_co2_df = st.session_state['co2_daily_dataframe']
+            
+            st.write("### Tényleges Napi CO2 Kibocsátás")
+            
+            # Diagram
+            fig2 = go.Figure()
+            
+            fig2.add_trace(go.Scatter(
+                x=daily_co2_df['Dátum_datetime'],
+                y=daily_co2_df['Napi CO2 (kg)'],
+                mode='lines+markers',
+                name='Napi CO2 Kibocsátás',
+                line=dict(color='#4ECDC4', width=3),
+                marker=dict(size=6)
+            ))
+            
+            fig2.update_layout(
+                title="Napi CO2 Kibocsátás (Villamosenergia fogyasztás alapján)",
+                xaxis_title="Dátum",
+                yaxis_title="CO2 Kibocsátás (kg)",
+                hovermode='x unified',
+                template="plotly_white",
+                height=500
+            )
+            
+            fig2.update_xaxes(
+                tickformat="%m-%d",
+                tickangle=45
+            )
+            
+            st.plotly_chart(fig2, use_container_width=True)
+            
+            # Statisztikák
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                total_co2_kg = daily_co2_df['Napi CO2 (kg)'].sum()
+                st.metric("Összes CO2", f"{total_co2_kg:.2f} kg")
+            with col2:
+                avg_daily_co2_kg = daily_co2_df['Napi CO2 (kg)'].mean()
+                st.metric("Átlagos napi CO2", f"{avg_daily_co2_kg:.2f} kg")
+            with col3:
+                max_daily_co2_kg = daily_co2_df['Napi CO2 (kg)'].max()
+                st.metric("Maximum napi CO2", f"{max_daily_co2_kg:.2f} kg")
+            with col4:
+                st.metric("Napok száma", len(daily_co2_df))
+            
+            # Táblázatos megjelenítés
+            st.write("### Részletes napi adatok")
+            display_df = daily_co2_df[['Dátum', 'Napi energia (kWh)', 'Átlag CO2 (g CO2/kWh)', 'Napi CO2 (kg)']].copy()
+            display_df.columns = ['Dátum', 'Energia (kWh)', 'Átlagos CO2 Intenzitás (g/kWh)', 'Napi CO2 (kg)']
+            st.dataframe(display_df, use_container_width=True)
