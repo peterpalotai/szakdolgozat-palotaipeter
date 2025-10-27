@@ -4,7 +4,6 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
 from database import get_db_connection, test_db_connection, execute_query
-import toml
 import os
 import sys
 
@@ -432,13 +431,11 @@ def show_home_page():
     
     days_to_show = 10
     
-    # API kulcs betöltése a config.toml fájlból
+    # API kulcs betöltése a Streamlit secrets-ből
     try:
-        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'config.toml')
-        config = toml.load(config_path)
-        api_key = config['api']['electricity_maps_token']
-    except Exception as e:
-        st.error(f"Hiányzik a config.toml fájl vagy az API kulcs. Hiba: {e}")
+        api_key = st.secrets["api"]["electricity_maps_token"]
+    except (KeyError, FileNotFoundError) as e:
+        st.error(f"Hiányzik a .streamlit/secrets.toml fájl vagy az API kulcs. Hiba: {e}")
         api_key = None
     
     # Session state inicializálása
