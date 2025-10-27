@@ -3,13 +3,13 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
-from database import get_db_connection, test_db_connection, execute_query
+from app_services.database import get_db_connection, test_db_connection, execute_query
 import os
 import sys
 
 # Hozzáadja a szülő könyvtárat a path-hoz
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from api_call import fetch_co2_emission_data
+from app_services.api_call import fetch_co2_emission_data
 
 def show_home_page():
     with open('styles.css', 'r', encoding='utf-8') as f:

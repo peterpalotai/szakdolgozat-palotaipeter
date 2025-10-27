@@ -3,7 +3,7 @@ from page_modules.home_page import show_home_page
 from page_modules.energy_prediction_page import show_energy_prediction_page
 from page_modules.dfv_prediction_page import show_dfv_prediction_page
 from page_modules.savings_page import show_savings_page
-from eon_scraper import scrape_eon_prices
+from app_services.eon_scraper import scrape_eon_prices
 
 
 

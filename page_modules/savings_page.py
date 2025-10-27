@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
 
-from eon_scraper import calculate_energy_costs
-from database import execute_query
+from app_services.eon_scraper import calculate_energy_costs
+from app_services.database import execute_query
 
 def show_savings_page():
     

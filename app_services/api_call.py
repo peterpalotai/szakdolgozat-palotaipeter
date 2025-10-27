@@ -2,7 +2,7 @@ import pandas as pd
 import requests
 from datetime import datetime, timedelta
 from urllib.parse import quote
-from database import execute_query
+from app_services.database import execute_query
 import streamlit as st
 
 

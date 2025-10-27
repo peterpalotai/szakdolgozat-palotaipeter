@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings('ignore')
 
-from eon_scraper import scrape_eon_prices, calculate_energy_costs
+from app_services.eon_scraper import scrape_eon_prices, calculate_energy_costs
 
 
 try:
@@ -21,7 +21,7 @@ try:
 except ImportError:
     ARIMA_AVAILABLE = False
 
-from database import get_db_connection, test_db_connection, execute_query
+from app_services.database import get_db_connection, test_db_connection, execute_query
 
 def show_energy_prediction_page():
     
