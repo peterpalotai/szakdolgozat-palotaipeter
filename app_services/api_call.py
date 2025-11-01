@@ -6,7 +6,7 @@ from app_services.database import execute_query
 import streamlit as st
 
 
-def fetch_co2_emission_data(days_to_show=10, api_key=None):
+def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart_db"):
     """
     Lekéri a CO2 kibocsátási adatokat az Electricity Maps API-ból
     és kombinálja az energiadataival az adatbázisból.
@@ -14,6 +14,7 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None):
     Args:
         days_to_show: Hány napra visszamenőleg kérdezze le (default: 10)
         api_key: API kulcs (ha nincs megadva, session state-ből veszi)
+        table_name: Az adatbázis tábla neve (default: "dfv_smart_db")
     
     Returns:
         tuple: (co2_hourly_df, co2_hourly_with_power, daily_co2_df)
@@ -24,7 +25,7 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None):
     
     # Dátumok számítása - először lekérdezzük az utolsó adatbázis napját
     try:
-        last_date_query = "SELECT MAX(date) as last_date FROM dfv_smart_db"
+        last_date_query = f"SELECT MAX(date) as last_date FROM {table_name}"
         last_date_result = execute_query(last_date_query)
         if last_date_result and len(last_date_result) > 0 and last_date_result[0][0]:
             end_date = datetime.combine(last_date_result[0][0], datetime.max.time())
@@ -67,12 +68,20 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None):
                 
                 # Adatbázisból energiafogyasztás lekérdezése
                 try:
+                    # Oszlopnevek meghatározása a táblanév alapján
+                    if table_name == "dfv_termosztat_db":
+                        voltage_column = "trend_termosztat_ul1n"
+                        current_column = "trend_termosztat_i1"
+                    else:  # dfv_smart_db
+                        voltage_column = "trend_smart_ul1n"
+                        current_column = "trend_smart_i1"
+                    
                     # Teljesítmény = Feszültség × Áramerősség - napi összesítés
                     energy_query = f"""
-                    SELECT date, SUM(trend_smart_ul1n::numeric * trend_smart_i1::numeric)::float as daily_energy_W
-                    FROM dfv_smart_db
+                    SELECT date, SUM({voltage_column}::numeric * {current_column}::numeric)::float as daily_energy_W
+                    FROM {table_name}
                     WHERE date >= '{start_date.date()}' AND date <= '{end_date.date()}'
-                    AND trend_smart_ul1n IS NOT NULL AND trend_smart_i1 IS NOT NULL
+                    AND {voltage_column} IS NOT NULL AND {current_column} IS NOT NULL
                     GROUP BY date
                     ORDER BY date
                     """

@@ -39,9 +39,36 @@ def show_home_page():
     if "selected_table" not in st.session_state:
         st.session_state.selected_table = "dfv_smart_db"
         st.session_state.table_display_name = "Oksomérő"
+        st.session_state.prev_selected_table = None
     
     selected_table = st.session_state.selected_table
     table_display_name = st.session_state.table_display_name
+    
+    # Ha váltottunk táblát, töröljük a CO2 cache-t és diagram cache-t
+    if "prev_selected_table" in st.session_state and st.session_state.prev_selected_table != selected_table:
+        # Előző táblához tartozó diagram cache-bejegyzések törlése
+        if "chart_data_cache" in st.session_state:
+            keys_to_delete = [key for key in st.session_state.chart_data_cache.keys() 
+                             if key.startswith(f"{st.session_state.prev_selected_table}_")]
+            for key in keys_to_delete:
+                del st.session_state.chart_data_cache[key]
+        
+        # CO2 cache törlése, hogy újragenerálódjanak az adatok
+        if 'co2_hourly_dataframe' in st.session_state:
+            del st.session_state['co2_hourly_dataframe']
+        if 'co2_hourly_with_power' in st.session_state:
+            del st.session_state['co2_hourly_with_power']
+        if 'co2_daily_dataframe' in st.session_state:
+            del st.session_state['co2_daily_dataframe']
+        if 'co2_cached_days' in st.session_state:
+            del st.session_state['co2_cached_days']
+        
+        # Offset reset az új táblához
+        if f"offset_{selected_table}" in st.session_state:
+            st.session_state[f"offset_{selected_table}"] = 0
+        
+        # Előző tábla frissítése
+        st.session_state.prev_selected_table = selected_table
     
     # Táblák kiválasztása gombokkal
     col1, col2 = st.columns(2)
@@ -50,11 +77,15 @@ def show_home_page():
         # Oksomérő gomb - narancssárga ha kiválasztott
         if selected_table == "dfv_smart_db":
             if st.button("Oksomérő", use_container_width=True, type="primary"):
+                # Előző tábla mentése
+                st.session_state.prev_selected_table = st.session_state.selected_table
                 st.session_state.selected_table = "dfv_smart_db"
                 st.session_state.table_display_name = "Oksomérő"
                 st.rerun()
         else:
             if st.button("Oksomérő", use_container_width=True, type="secondary"):
+                # Előző tábla mentése
+                st.session_state.prev_selected_table = st.session_state.selected_table
                 st.session_state.selected_table = "dfv_smart_db"
                 st.session_state.table_display_name = "Oksomérő"
                 st.rerun()
@@ -63,11 +94,15 @@ def show_home_page():
         # Termosztátos mérő gomb - narancssárga ha kiválasztott
         if selected_table == "dfv_termosztat_db":
             if st.button("Termosztátos mérő", use_container_width=True, type="primary"):
+                # Előző tábla mentése
+                st.session_state.prev_selected_table = st.session_state.selected_table
                 st.session_state.selected_table = "dfv_termosztat_db"
                 st.session_state.table_display_name = "Termosztátos mérő"
                 st.rerun()
         else:
             if st.button("Termosztátos mérő", use_container_width=True, type="secondary"):
+                # Előző tábla mentése
+                st.session_state.prev_selected_table = st.session_state.selected_table
                 st.session_state.selected_table = "dfv_termosztat_db"
                 st.session_state.table_display_name = "Termosztátos mérő"
                 st.rerun()
@@ -427,7 +462,7 @@ def show_home_page():
     
     # CO2 kibocsátási adatok lekérdezése
     st.write("---")
-    st.write("## CO2 Kibocsátási Adatok")
+    st.write("## Utolsó 10 nap CO2 kibocsátás adatai")
     
     days_to_show = 10
     
@@ -441,23 +476,24 @@ def show_home_page():
     # Session state inicializálása
     if 'co2_cached_days' not in st.session_state:
         st.session_state.co2_cached_days = 10
+    if 'co2_cached_table' not in st.session_state:
+        st.session_state.co2_cached_table = None
     
-    # Automatikusan lekérdezi, ha nincsenek cached adatok
-    auto_refresh = ('co2_hourly_dataframe' not in st.session_state)
+    auto_refresh = ('co2_hourly_dataframe' not in st.session_state) or (st.session_state.co2_cached_table != selected_table)
     
     if auto_refresh and api_key:
         with st.spinner("Adatok lekérése folyamatban..."):
-            co2_hourly_df, co2_hourly_with_power, daily_co2_df = fetch_co2_emission_data(days_to_show, api_key)
+            co2_hourly_df, co2_hourly_with_power, daily_co2_df = fetch_co2_emission_data(days_to_show, api_key, selected_table)
             
             if co2_hourly_df is not None:
                 # Adatok cache-elése
                 st.session_state['co2_hourly_dataframe'] = co2_hourly_df
                 st.session_state['co2_cached_days'] = days_to_show
+                st.session_state['co2_cached_table'] = selected_table
                 
                 if co2_hourly_with_power is not None and daily_co2_df is not None:
                     st.session_state['co2_hourly_with_power'] = co2_hourly_with_power
                     st.session_state['co2_daily_dataframe'] = daily_co2_df
-                    st.success(f"Sikeresen lekérve {len(co2_hourly_df)} órás CO2 adatpont és {len(daily_co2_df)} napi energia adat!")
                 else:
                     st.warning("Nincs energiafogyasztási adat az adatbázisban az időszakra.")
     
@@ -469,7 +505,6 @@ def show_home_page():
         if 'co2_hourly_with_power' in st.session_state and st.session_state['co2_hourly_with_power'] is not None:
             co2_hourly_with_power = st.session_state['co2_hourly_with_power']
             
-            st.write("### Tényleges Órás CO2 Kibocsátás")
             
             # Diagram 
             fig2 = go.Figure()
@@ -478,13 +513,13 @@ def show_home_page():
                 x=co2_hourly_with_power['Dátum és idő'],
                 y=co2_hourly_with_power['Óras CO2 (kg)'],
                 mode='lines+markers',
-                name='Órás CO2 Kibocsátás',
+                name='Órás CO2 kibocsátás',
                 line=dict(color='#4ECDC4', width=2),
                 marker=dict(size=4)
             ))
             
             fig2.update_layout(
-                title="Órás CO2 Kibocsátás (Villamosenergia fogyasztás alapján)",
+                title="Órás CO2 Kibocsátás",
                 xaxis_title="Dátum és idő",
                 yaxis_title="CO2 Kibocsátás (kg)",
                 hovermode='x unified',
@@ -504,7 +539,7 @@ def show_home_page():
                 daily_co2_df = st.session_state['co2_daily_dataframe']
                 
                 st.write("---")
-                st.write("### Napi CO2 Kibocsátás Összesített Adatai")
+                st.write("### Korábbi 10 nap CO2 kibocsátás összesített adatai")
                 display_daily_df = daily_co2_df[['Dátum', 'Napi energia (kWh)', 'Átlag CO2 (g CO2/kWh)', 'Napi CO2 (kg)']].copy()
                 display_daily_df.columns = ['Dátum', 'Energia (kWh)', 'Átlagos CO2 Intenzitás (g/kWh)', 'Napi CO2 Kibocsátás (kg)']
                 st.dataframe(display_daily_df, use_container_width=True)
@@ -522,11 +557,11 @@ def show_home_page():
                 max_hourly_co2_kg = co2_hourly_with_power['Óras CO2 (kg)'].max()
                 st.metric("Maximum óras CO2", f"{max_hourly_co2_kg:.4f} kg")
         
-        # Napi összesített adatok megjelenítése
+        
         elif 'co2_daily_dataframe' in st.session_state and st.session_state['co2_daily_dataframe'] is not None:
             daily_co2_df = st.session_state['co2_daily_dataframe']
             
-            st.write("### Tényleges Napi CO2 Kibocsátás")
+            st.write("### Korábbi 10 nap CO2 kibocsátás")
             
             # Diagram
             fig2 = go.Figure()
@@ -541,7 +576,7 @@ def show_home_page():
             ))
             
             fig2.update_layout(
-                title="Napi CO2 Kibocsátás (Villamosenergia fogyasztás alapján)",
+                title="Korábbi 10 nap CO2 kibocsátás",
                 xaxis_title="Dátum",
                 yaxis_title="CO2 Kibocsátás (kg)",
                 hovermode='x unified',
