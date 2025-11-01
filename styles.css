@@ -1,4 +1,4 @@
-/* CSS stílusok a DFV Dashboard-hoz */
+
 
 .main .block-container {
     max-width: 80rem;
@@ -7,7 +7,11 @@
 }
 
 .stMainBlockContainer {
-    max-width: 80rem !important;
+    max-width: 95% !important;
+}
+
+.stSideBarContent {
+    max-width: 100% !important;
 }
 
 /* Ensure the styling persists on interactions */

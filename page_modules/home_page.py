@@ -9,7 +9,7 @@ import sys
 
 # Hozzáadja a szülő könyvtárat a path-hoz
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app_services.api_call import fetch_co2_emission_data
+from app_services.api_call_CO2 import fetch_co2_emission_data
 
 def show_home_page():
     with open('styles.css', 'r', encoding='utf-8') as f:
@@ -462,7 +462,7 @@ def show_home_page():
     
     # CO2 kibocsátási adatok lekérdezése
     st.write("---")
-    st.write("## Utolsó 10 nap CO2 kibocsátás adatai")
+    st.write("## Korábbi 10 nap CO2 kibocsátás adatai")
     
     days_to_show = 10
     
