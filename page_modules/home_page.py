@@ -150,7 +150,16 @@ def show_home_page():
     try:
         # Globális page size lekérése session state-ből
         current_page_size = st.session_state.global_page_size
-        query = f"SELECT * FROM {selected_table} LIMIT {current_page_size} OFFSET {st.session_state[f'offset_{selected_table}']}"
+        
+        # Oszlopok meghatározása a táblánév alapján (feszültség oszlop kizárása)
+        if selected_table == "dfv_smart_db":
+            columns = "id, date, time, trend_smart_t, trend_smart_i1, trend_smart_p, trend_smart_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+        elif selected_table == "dfv_termosztat_db":
+            columns = "id, date, time, trend_termosztat_t, trend_termosztat_i1, trend_termosztat_p, trend_termosztat_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+        else:
+            columns = "*"  # Ha más tábla, akkor minden oszlop
+        
+        query = f"SELECT {columns} FROM {selected_table} LIMIT {current_page_size} OFFSET {st.session_state[f'offset_{selected_table}']}"
         result = execute_query(query)
         
         if result:
@@ -161,7 +170,7 @@ def show_home_page():
             # Oszlopnevek definiálása
             column_names = [
                 "Dátum", "Idő", "Harmatpont (°C)", "Hőmérséklet (°C)", 
-                "Áramerősség (A)", "Feszültség (V)", "Teljesítmény (W)", 
+                "Áramerősség (A)", "Teljesítmény (W)", 
                 "Relatív páratartalom (%)", "Külső páratartalom (%)", "Külső hőmérséklet (°C)"
             ]
             
@@ -371,16 +380,24 @@ def show_home_page():
                     if start_time < first_data_time:
                         start_time = first_data_time
                     
+                    # Oszlopok meghatározása a táblánév alapján (feszültség oszlop kizárása)
+                    if selected_table == "dfv_smart_db":
+                        chart_columns = "id, date, time, trend_smart_t, trend_smart_i1, trend_smart_p, trend_smart_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+                    elif selected_table == "dfv_termosztat_db":
+                        chart_columns = "id, date, time, trend_termosztat_t, trend_termosztat_i1, trend_termosztat_p, trend_termosztat_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+                    else:
+                        chart_columns = "*"  # Ha más tábla, akkor minden oszlop
+                    
                     # Adatok lekérdezése az időintervallum alapján
                     if time_interval == "Egyedi időtartam" and custom_start_time and custom_end_time:
                         query = f"""
-                        SELECT * FROM {selected_table} 
+                        SELECT {chart_columns} FROM {selected_table} 
                         WHERE DATE(date) BETWEEN '{start_time.strftime('%Y-%m-%d')}' AND '{end_time.strftime('%Y-%m-%d')}'
                         ORDER BY date, time
                         """
                     else:
                         query = f"""
-                        SELECT * FROM {selected_table} 
+                        SELECT {chart_columns} FROM {selected_table} 
                         WHERE CONCAT(date, ' ', time) <= '{last_data_time.strftime('%Y-%m-%d %H:%M:%S')}'
                         AND CONCAT(date, ' ', time) >= '{start_time.strftime('%Y-%m-%d %H:%M:%S')}'
                         ORDER BY date, time
@@ -400,58 +417,82 @@ def show_home_page():
                 # DataFrame létrehozása a diagramhoz
                 chart_df = pd.DataFrame(chart_data)
                 
-                # Oszlopnevek beállítása
-                chart_df.columns = ["ID", "Dátum", "Idő", "Harmatpont (°C)", "Hőmérséklet (°C)", 
-                                  "Áramerősség (A)", "Feszültség (V)", "Teljesítmény (W)", 
+                # Oszlopnevek beállítása - dinamikusan az oszlopok száma szerint
+                column_names_chart = ["ID", "Dátum", "Idő", "Harmatpont (°C)", "Hőmérséklet (°C)", 
+                                  "Áramerősség (A)", "Teljesítmény (W)", 
                                   "Relatív páratartalom (%)", "Külső páratartalom (%)", "Külső hőmérséklet (°C)"]
+                # Csak annyi oszlopnevet használunk, amennyi oszlop van
+                available_columns_chart = min(len(column_names_chart), len(chart_df.columns))
+                chart_df.columns = column_names_chart[:available_columns_chart]
                 
-                # Dátum-idő oszlop kombinálása
-                chart_df['Dátum_Idő'] = pd.to_datetime(chart_df['Dátum'].astype(str) + ' ' + chart_df['Idő'].astype(str))
+                # Dátum-idő oszlop kombinálása - dinamikusan az oszlopok indexe alapján
+                # Ha van legalább 3 oszlop (ID, Dátum, Idő), akkor a 2. és 3. oszlopokat használjuk
+                date_time_created = False
+                if len(chart_df.columns) >= 3:
+                    # Ha van 'Dátum' és 'Idő' oszlop, akkor azokat használjuk
+                    if 'Dátum' in chart_df.columns and 'Idő' in chart_df.columns:
+                        chart_df['Dátum_Idő'] = pd.to_datetime(chart_df['Dátum'].astype(str) + ' ' + chart_df['Idő'].astype(str))
+                        date_time_created = True
+                    else:
+                        # Egyébként az 1. és 2. oszlopot (0. index után) használjuk dátum és időként
+                        chart_df['Dátum_Idő'] = pd.to_datetime(chart_df.iloc[:, 1].astype(str) + ' ' + chart_df.iloc[:, 2].astype(str))
+                        date_time_created = True
+                elif len(chart_df.columns) >= 2:
+                    # Ha csak 2 oszlop van, akkor az elsőt dátumként használjuk
+                    chart_df['Dátum_Idő'] = pd.to_datetime(chart_df.iloc[:, 0].astype(str))
+                    date_time_created = True
                 
-                # Kiválasztott oszlop adatainak előkészítése
-                chart_df[selected_column] = pd.to_numeric(chart_df[selected_column], errors='coerce')
-                
-                # Vonaldiagram létrehozása
-                fig = go.Figure()
-                
-                fig.add_trace(go.Scatter(
-                    x=chart_df['Dátum_Idő'],
-                    y=chart_df[selected_column],
-                    mode='lines+markers',
-                    name=selected_column,
-                    line=dict(width=2),
-                    marker=dict(size=4)
-                ))
-                
-                fig.update_layout(
-                    title=f"{selected_column} változása az időben",
-                    xaxis_title="Dátum és idő",
-                    yaxis_title=selected_column,
-                    hovermode='x unified',
-                    template="plotly_white"
-                )
-                
-                # X tengely formázása
-                fig.update_xaxes(
-                    tickformat="%m-%d %H:%M",
-                    tickangle=45
-                )
-                
-                st.plotly_chart(fig, use_container_width=True)
-                
-                st.session_state.chart_generated = True
-                
-                # Statisztikák megjelenítése
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    st.metric("Minimális érték", f"{chart_df[selected_column].min():.2f}")
-                with col2:
-                    st.metric("Maximális érték", f"{chart_df[selected_column].max():.2f}")
-                with col3:
-                    st.metric("Átlag", f"{chart_df[selected_column].mean():.2f}")
-                with col4:
-                    st.metric("Mérések száma", len(chart_df))
+                # Ha nem sikerült a dátum-idő kombinálás, akkor nem folytatjuk
+                if not date_time_created:
+                    st.error("Nincs elegendő oszlop a dátum-idő kombinálásához!")
+                else:
+                    # Kiválasztott oszlop adatainak előkészítése
+                    if selected_column in chart_df.columns:
+                        chart_df[selected_column] = pd.to_numeric(chart_df[selected_column], errors='coerce')
+                        
+                        # Vonaldiagram létrehozása
+                        fig = go.Figure()
+                        
+                        fig.add_trace(go.Scatter(
+                            x=chart_df['Dátum_Idő'],
+                            y=chart_df[selected_column],
+                            mode='lines+markers',
+                            name=selected_column,
+                            line=dict(width=2),
+                            marker=dict(size=4)
+                        ))
+                        
+                        fig.update_layout(
+                            title=f"{selected_column} változása az időben",
+                            xaxis_title="Dátum és idő",
+                            yaxis_title=selected_column,
+                            hovermode='x unified',
+                            template="plotly_white"
+                        )
+                        
+                        # X tengely formázása
+                        fig.update_xaxes(
+                            tickformat="%m-%d %H:%M",
+                            tickangle=45
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                        
+                        st.session_state.chart_generated = True
+                        
+                        # Statisztikák megjelenítése
+                        col1, col2, col3, col4 = st.columns(4)
+                        
+                        with col1:
+                            st.metric("Minimális érték", f"{chart_df[selected_column].min():.2f}")
+                        with col2:
+                            st.metric("Maximális érték", f"{chart_df[selected_column].max():.2f}")
+                        with col3:
+                            st.metric("Átlag", f"{chart_df[selected_column].mean():.2f}")
+                        with col4:
+                            st.metric("Mérések száma", len(chart_df))
+                    else:
+                        st.error(f"A kiválasztott oszlop ({selected_column}) nem létezik az adatokban!")
                     
             else:
                 st.warning("Nincs adat a kiválasztott időintervallumban.")

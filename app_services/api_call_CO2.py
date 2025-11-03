@@ -70,18 +70,16 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
                 try:
                     # Oszlopnevek meghatározása a táblanév alapján
                     if table_name == "dfv_termosztat_db":
-                        voltage_column = "trend_termosztat_ul1n"
-                        current_column = "trend_termosztat_i1"
+                        power_column = "trend_termosztat_p"
                     else:  # dfv_smart_db
-                        voltage_column = "trend_smart_ul1n"
-                        current_column = "trend_smart_i1"
+                        power_column = "trend_smart_p"
                     
-                    # Teljesítmény = Feszültség × Áramerősség - napi összesítés
+                    # Közvetlen teljesítmény oszlop használata - napi összesítés
                     energy_query = f"""
-                    SELECT date, SUM({voltage_column}::numeric * {current_column}::numeric)::float as daily_energy_W
+                    SELECT date, SUM({power_column}::numeric)::float as daily_energy_W
                     FROM {table_name}
                     WHERE date >= '{start_date.date()}' AND date <= '{end_date.date()}'
-                    AND {voltage_column} IS NOT NULL AND {current_column} IS NOT NULL
+                    AND {power_column} IS NOT NULL
                     GROUP BY date
                     ORDER BY date
                     """
@@ -141,4 +139,107 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
     except Exception as e:
         st.error(f"Hiba történt az adatok lekérése során: {e}")
         return None, None, None
+
+
+def fetch_co2_forecast_hourly(api_key, days=3):
+    """
+    Lekéri a CO2 kibocsátási előrejelzést az Electricity Maps API-ból óránkénti bontásban.
+    Csak a következő 3 napra van előrejelzés elérhető.
+    
+    Args:
+        api_key: API kulcs
+        days: Hány napra előre kérdezze le (max 3, default: 3)
+    
+    Returns:
+        DataFrame: CO2 intenzitás adatok óránkénti bontásban
+    """
+    
+    if api_key is None:
+        return None
+    
+    # Maximum 3 nap lehet
+    days = min(3, days)
+    
+    # Forecast endpoint - óránkénti előrejelzés
+    base_url = "https://api.electricitymaps.com/v3/carbon-intensity/forecast"
+    api_url = f"{base_url}?zone=HU"
+    
+    try:
+        response = requests.get(
+            api_url,
+            headers={"auth-token": api_key}
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            co2_data = []
+            
+            # Ellenőrizzük a különböző lehetséges válaszformátumokat
+            if 'forecast' in data and len(data['forecast']) > 0:
+                forecast_items = data['forecast']
+            elif isinstance(data, list) and len(data) > 0:
+                forecast_items = data
+            elif 'data' in data and len(data['data']) > 0:
+                forecast_items = data['data']
+            else:
+                st.warning("Nincs előrejelzési adat az API válaszban.")
+                return None
+            
+            # Csak az első 3 nap (72 óra) adatainak feldolgozása
+            processed_hours = 0
+            max_hours = days * 24
+            
+            for item in forecast_items:
+                if processed_hours >= max_hours:
+                    break
+                
+                # Dátum-idő kezelése
+                if 'datetime' in item:
+                    timestamp_str = item['datetime']
+                elif 'dt' in item:
+                    timestamp_str = item['dt']
+                else:
+                    continue
+                
+                try:
+                    # Időbélyeg feldolgozása
+                    timestamp_str_clean = timestamp_str.replace('Z', '')
+                    if '+' in timestamp_str_clean:
+                        timestamp_str_clean = timestamp_str_clean.split('+')[0]
+                    timestamp = datetime.fromisoformat(timestamp_str_clean)
+                except Exception:
+                    continue
+                
+                # CO2 intenzitás kinyerése
+                co2_intensity = item.get('carbonIntensity', item.get('value', item.get('intensity', 0)))
+                
+                if co2_intensity is not None and co2_intensity > 0:
+                    co2_data.append({
+                        'Dátum és idő': timestamp,
+                        'CO2 Kibocsátás (g CO2/kWh)': co2_intensity,
+                        'Dátum': timestamp.date(),
+                        'Óra': timestamp.hour
+                    })
+                    processed_hours += 1
+            
+            if len(co2_data) > 0:
+                co2_df = pd.DataFrame(co2_data)
+                
+                # Dátum szerint rendezés
+                co2_df = co2_df.sort_values('Dátum és idő').reset_index(drop=True)
+                
+                return co2_df
+            else:
+                st.warning("Nem sikerült feldolgozni az előrejelzési adatokat.")
+                return None
+        else:
+            st.error(f"API hiba: {response.status_code} - {response.text}")
+            return None
+            
+    except Exception as e:
+        st.error(f"Hiba történt az előrejelzési adatok lekérése során: {e}")
+        import traceback
+        st.code(traceback.format_exc())
+        return None
 

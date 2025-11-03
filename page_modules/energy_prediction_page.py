@@ -108,24 +108,23 @@ def show_energy_prediction_page():
     if st.button("Adatok betöltése", type="primary"):
         with st.spinner("Adatok betöltése folyamatban van..."):
             try:
-                # Adatok lekérdezése a számított fogyasztáshoz (U×I) + külső változók
+                # Adatok lekérdezése a közvetlen teljesítmény oszlopból + külső változók
+                power_column = "trend_smart_p" if selected_table == "dfv_smart_db" else "trend_termosztat_p"
                 current_column = "trend_smart_i1" if selected_table == "dfv_smart_db" else "trend_termosztat_i1"
-                voltage_column = "trend_smart_ul1n" if selected_table == "dfv_smart_db" else "trend_termosztat_ul1n"
                 temp_column = "trend_smart_t" if selected_table == "dfv_smart_db" else "trend_termosztat_t"
                 humidity_column = "trend_smart_rh" if selected_table == "dfv_smart_db" else "trend_termosztat_rh"
                 
                 query = f"""
                 SELECT date, time, 
-                       {voltage_column} as voltage, 
+                       {power_column} as value,
                        {current_column} as current,
-                       ({voltage_column} * {current_column}) as value,
                        {temp_column} as internal_temp,
                        trend_kulso_homerseklet_pillanatnyi as external_temp,
                        {humidity_column} as internal_humidity,
                        trend_kulso_paratartalom as external_humidity
                 FROM {selected_table}
                 WHERE DATE(date) BETWEEN '{start_date}' AND '{end_date}'
-                AND {voltage_column} IS NOT NULL 
+                AND {power_column} IS NOT NULL 
                 AND {current_column} IS NOT NULL
                 AND {temp_column} IS NOT NULL
                 AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
@@ -135,11 +134,9 @@ def show_energy_prediction_page():
                 data = execute_query(query)
                 
                 if data and len(data) > 0:
-                    # DataFrame létrehozása a számított fogyasztáshoz + külső változók
-                    df = pd.DataFrame(data, columns=['date', 'time', 'voltage', 'current', 'value', 
+                    # DataFrame létrehozása a közvetlen teljesítmény értékekkel + külső változók
+                    df = pd.DataFrame(data, columns=['date', 'time', 'value', 'current', 
                                                     'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity'])
-                    # Számított fogyasztás: P = U × I
-                    df['value'] = df['voltage'] * df['current']
                     
                     # Dátum-idő kombinálása
                     df['datetime'] = pd.to_datetime(df['date'].astype(str) + ' ' + df['time'].astype(str))
@@ -247,6 +244,9 @@ def show_energy_prediction_page():
                 
                 # Alsó határ korlátozása 0-ra (fogyasztás nem lehet negatív)
                 forecast_df['lower_bound'] = forecast_df['lower_bound'].clip(lower=0)
+                
+                # Session state-be mentés
+                st.session_state.forecast_df = forecast_df.copy()
                 
                 # Vizuális megjelenítés
                 fig = go.Figure()

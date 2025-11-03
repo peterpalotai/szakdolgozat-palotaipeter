@@ -64,16 +64,15 @@ def show_savings_page():
                     # Mindkét tábla adatainak lekérése
                     smart_query = f"""
                     SELECT date, time, 
-                           trend_smart_ul1n as voltage, 
+                           trend_smart_p as value,
                            trend_smart_i1 as current,
-                           (trend_smart_ul1n * trend_smart_i1) as value,
                            trend_smart_t as internal_temp,
                            trend_kulso_homerseklet_pillanatnyi as external_temp,
                            trend_smart_rh as internal_humidity,
                            trend_kulso_paratartalom as external_humidity
                     FROM dfv_smart_db
                     WHERE DATE(date) BETWEEN '{start_date}' AND '{end_date}'
-                    AND trend_smart_ul1n IS NOT NULL 
+                    AND trend_smart_p IS NOT NULL 
                     AND trend_smart_i1 IS NOT NULL
                     AND trend_smart_t IS NOT NULL
                     AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
@@ -82,16 +81,15 @@ def show_savings_page():
                     
                     thermostat_query = f"""
                     SELECT date, time, 
-                           trend_termosztat_ul1n as voltage, 
+                           trend_termosztat_p as value,
                            trend_termosztat_i1 as current,
-                           (trend_termosztat_ul1n * trend_termosztat_i1) as value,
                            trend_termosztat_t as internal_temp,
                            trend_kulso_homerseklet_pillanatnyi as external_temp,
                            trend_termosztat_rh as internal_humidity,
                            trend_kulso_paratartalom as external_humidity
                     FROM dfv_termosztat_db
                     WHERE DATE(date) BETWEEN '{start_date}' AND '{end_date}'
-                    AND trend_termosztat_ul1n IS NOT NULL 
+                    AND trend_termosztat_p IS NOT NULL 
                     AND trend_termosztat_i1 IS NOT NULL
                     AND trend_termosztat_t IS NOT NULL
                     AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
@@ -103,14 +101,10 @@ def show_savings_page():
                     
                     if smart_data and thermostat_data and len(smart_data) > 0 and len(thermostat_data) > 0:
                         # DataFrame-ek létrehozása
-                        smart_df = pd.DataFrame(smart_data, columns=['date', 'time', 'voltage', 'current', 'value', 
+                        smart_df = pd.DataFrame(smart_data, columns=['date', 'time', 'value', 'current', 
                                                                     'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity'])
-                        thermostat_df = pd.DataFrame(thermostat_data, columns=['date', 'time', 'voltage', 'current', 'value', 
+                        thermostat_df = pd.DataFrame(thermostat_data, columns=['date', 'time', 'value', 'current', 
                                                                               'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity'])
-                        
-                        # Számított fogyasztás
-                        smart_df['value'] = smart_df['voltage'] * smart_df['current']
-                        thermostat_df['value'] = thermostat_df['voltage'] * thermostat_df['current']
                         
                         # Dátum-idő kombinálása
                         smart_df['datetime'] = pd.to_datetime(smart_df['date'].astype(str) + ' ' + smart_df['time'].astype(str))
