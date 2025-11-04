@@ -626,10 +626,10 @@ def show_home_page():
             
             st.write("### Korábbi 10 nap CO2 kibocsátás")
             
-            # Diagram - Teljesítmény vs CO2 kibocsátás (W-ban és grammban)
+            
             fig2 = go.Figure()
             
-            # Adatok szűrése, hogy csak a valid értékeket mutassuk (W-ban és grammban)
+            
             if 'Napi átlagos teljesítmény (W)' in daily_co2_df.columns:
                 valid_data = daily_co2_df.dropna(subset=['Napi átlagos teljesítmény (W)', 'Napi CO2 (g)'])
                 valid_data = valid_data[(valid_data['Napi átlagos teljesítmény (W)'] > 0) & (valid_data['Napi CO2 (g)'] > 0)]
