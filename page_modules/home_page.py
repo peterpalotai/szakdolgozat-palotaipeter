@@ -345,75 +345,92 @@ def show_home_page():
             
             # Ha van cache-elt adat és nem változtak a beállítások, azt használjuk
             if cache_key in st.session_state.chart_data_cache:
-                chart_data = st.session_state.chart_data_cache[cache_key]
+                cached_data = st.session_state.chart_data_cache[cache_key]
+                # Csak akkor használjuk a cache-t, ha van benne adat
+                if cached_data and len(cached_data) > 0:
+                    chart_data = cached_data
+                else:
+                    # Ha üres volt a cache, töröljük és újra lekérdezzük
+                    del st.session_state.chart_data_cache[cache_key]
+                    chart_data = None
             else:
+                chart_data = None
+            
+            # Ha nincs cache-elt adat, lekérdezzük az új adatokat
+            if chart_data is None:
                 # Új adatok lekérdezése
                 try:
-                    # Időintervallumok megadása
-                    last_data_time = datetime(2025, 8, 21, 23, 45, 0) 
-                    first_data_time = datetime(2024, 8, 19, 8, 0, 0)
-                    
-                    if time_interval == "1 óra":
-                        start_time = last_data_time - timedelta(hours=1)
-                    elif time_interval == "3 óra":
-                        start_time = last_data_time - timedelta(hours=3)
-                    elif time_interval == "12 óra":
-                        start_time = last_data_time - timedelta(hours=12)
-                    elif time_interval == "1 nap":
-                        start_time = last_data_time - timedelta(days=1)
-                    elif time_interval == "3 nap":
-                        start_time = last_data_time - timedelta(days=3)
-                    elif time_interval == "7 nap":
-                        start_time = last_data_time - timedelta(days=7)
-                    elif time_interval == "Egyedi időtartam":
-                        if custom_start_time and custom_end_time:
-                            start_time = datetime.combine(custom_start_time, datetime.min.time())
-                            end_time = datetime.combine(custom_end_time, datetime.max.time())
-                        else:
+                    # Ellenőrizzük az "Egyedi időtartam" esetét először
+                    if time_interval == "Egyedi időtartam":
+                        if not custom_start_time or not custom_end_time:
                             st.error("Válassz ki kezdő és befejező dátumot!")
                             chart_data = None
-                        if chart_data is None:
-                            st.stop()
+                        else:
+                            start_time = datetime.combine(custom_start_time, datetime.min.time())
+                            end_time = datetime.combine(custom_end_time, datetime.max.time())
                     else:
-                        start_time = last_data_time - timedelta(hours=1)
+                        # Időintervallumok megadása
+                        last_data_time = datetime(2025, 8, 21, 23, 45, 0) 
+                        first_data_time = datetime(2024, 8, 19, 8, 0, 0)
+                        
+                        if time_interval == "1 óra":
+                            start_time = last_data_time - timedelta(hours=1)
+                        elif time_interval == "3 óra":
+                            start_time = last_data_time - timedelta(hours=3)
+                        elif time_interval == "12 óra":
+                            start_time = last_data_time - timedelta(hours=12)
+                        elif time_interval == "1 nap":
+                            start_time = last_data_time - timedelta(days=1)
+                        elif time_interval == "3 nap":
+                            start_time = last_data_time - timedelta(days=3)
+                        elif time_interval == "7 nap":
+                            start_time = last_data_time - timedelta(days=7)
+                        else:
+                            start_time = last_data_time - timedelta(hours=1)
+                        
+                        if start_time < first_data_time:
+                            start_time = first_data_time
                     
-                    if start_time < first_data_time:
-                        start_time = first_data_time
-                    
-                    # Oszlopok meghatározása a táblánév alapján (feszültség oszlop kizárása)
-                    if selected_table == "dfv_smart_db":
-                        chart_columns = "id, date, time, trend_smart_t, trend_smart_i1, trend_smart_p, trend_smart_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
-                    elif selected_table == "dfv_termosztat_db":
-                        chart_columns = "id, date, time, trend_termosztat_t, trend_termosztat_i1, trend_termosztat_p, trend_termosztat_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+                    # Ha chart_data még mindig None (pl. nincs dátum megadva), akkor ne folytassuk
+                    if chart_data is None and time_interval == "Egyedi időtartam":
+                        pass  # Már kiírtuk a hibát, nem folytatjuk
                     else:
-                        chart_columns = "*"  # Ha más tábla, akkor minden oszlop
-                    
-                    # Adatok lekérdezése az időintervallum alapján
-                    if time_interval == "Egyedi időtartam" and custom_start_time and custom_end_time:
-                        query = f"""
-                        SELECT {chart_columns} FROM {selected_table} 
-                        WHERE DATE(date) BETWEEN '{start_time.strftime('%Y-%m-%d')}' AND '{end_time.strftime('%Y-%m-%d')}'
-                        ORDER BY date, time
-                        """
-                    else:
-                        query = f"""
-                        SELECT {chart_columns} FROM {selected_table} 
-                        WHERE CONCAT(date, ' ', time) <= '{last_data_time.strftime('%Y-%m-%d %H:%M:%S')}'
-                        AND CONCAT(date, ' ', time) >= '{start_time.strftime('%Y-%m-%d %H:%M:%S')}'
-                        ORDER BY date, time
-                        """
-                    
-                    chart_data = execute_query(query)
-                    
-                    # Cache-eljük az adatokat
-                    st.session_state.chart_data_cache[cache_key] = chart_data
+                        # Oszlopok meghatározása a táblánév alapján (feszültség oszlop kizárása)
+                        if selected_table == "dfv_smart_db":
+                            chart_columns = "id, date, time, trend_smart_t, trend_smart_i1, trend_smart_p, trend_smart_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+                        elif selected_table == "dfv_termosztat_db":
+                            chart_columns = "id, date, time, trend_termosztat_t, trend_termosztat_i1, trend_termosztat_p, trend_termosztat_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+                        else:
+                            chart_columns = "*"  # Ha más tábla, akkor minden oszlop
+                        
+                        # Adatok lekérdezése az időintervallum alapján
+                        if time_interval == "Egyedi időtartam" and custom_start_time and custom_end_time:
+                            query = f"""
+                            SELECT {chart_columns} FROM {selected_table} 
+                            WHERE DATE(date) BETWEEN '{start_time.strftime('%Y-%m-%d')}' AND '{end_time.strftime('%Y-%m-%d')}'
+                            ORDER BY date, time
+                            """
+                        else:
+                            query = f"""
+                            SELECT {chart_columns} FROM {selected_table} 
+                            WHERE CONCAT(date, ' ', time) <= '{last_data_time.strftime('%Y-%m-%d %H:%M:%S')}'
+                            AND CONCAT(date, ' ', time) >= '{start_time.strftime('%Y-%m-%d %H:%M:%S')}'
+                            ORDER BY date, time
+                            """
+                        
+                        chart_data = execute_query(query)
+                        
+                        # Cache-eljük az adatokat, de csak ha van benne adat
+                        if chart_data and len(chart_data) > 0:
+                            st.session_state.chart_data_cache[cache_key] = chart_data
                     
                 except Exception as e:
                     st.error(f"Hiba a diagram generálásakor: {e}")
                     chart_data = None
             
             # Diagram megjelenítése (cache-ből vagy új adatokból)
-            if chart_data:
+            # Ellenőrizzük, hogy van-e adat (nem None és nem üres lista)
+            if chart_data and len(chart_data) > 0:
                 # DataFrame létrehozása a diagramhoz
                 chart_df = pd.DataFrame(chart_data)
                 

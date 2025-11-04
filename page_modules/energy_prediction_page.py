@@ -35,7 +35,7 @@ def show_energy_prediction_page():
     </style>
     """, unsafe_allow_html=True)
     
-    st.write("# Energia és ár előrejelzés")
+    st.write("# Energiafogyasztás és megtakarítás előrejelzés")
     
     # E.ON árak státusz megjelenítése
     if 'loss_price' in st.session_state and 'market_price' in st.session_state and st.session_state.loss_price is not None:

@@ -17,8 +17,8 @@ if st.sidebar.button("🏠 Főoldal", use_container_width=True):
 if st.sidebar.button("💰 Megtakarítások", use_container_width=True):
     st.session_state.page = "💰 Megtakarítások"
 
-if st.sidebar.button("⚡ Energia és ár előrejelzés", use_container_width=True):
-    st.session_state.page = "⚡ Energia és ár előrejelzés"
+if st.sidebar.button("⚡ Energiafogyasztás és megtakarítás előrejelzés", use_container_width=True):
+    st.session_state.page = "⚡ Energiafogyasztás és megtakarítás előrejelzés"
 
 
 
@@ -46,7 +46,7 @@ page = st.session_state.page
 # Oldal megjelenítése
 if page == "🏠 Főoldal":
     show_home_page()
-elif page == "⚡ Energia és ár előrejelzés":
+elif page == "⚡ Energiafogyasztás és megtakarítás előrejelzés":
     show_energy_prediction_page()
 elif page == "💰 Megtakarítások":
     show_savings_page()
