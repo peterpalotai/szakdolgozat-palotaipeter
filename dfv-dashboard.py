@@ -27,17 +27,15 @@ if "page" not in st.session_state:
     st.session_state.page = "🏠 Főoldal"
 
 # E.ON árak automatikus lekérése az alkalmazás indításakor
-if 'loss_price' not in st.session_state or 'market_price' not in st.session_state:
+if 'loss_price' not in st.session_state:
     with st.spinner("E.ON árak automatikus lekérése..."):
-        loss_price, market_price, error = scrape_eon_prices()
+        loss_price, error = scrape_eon_prices()
     
     if error:
         st.session_state.loss_price = None
-        st.session_state.market_price = None
         st.session_state.eon_error = error
     else:
         st.session_state.loss_price = loss_price
-        st.session_state.market_price = market_price
         st.session_state.eon_error = None
 
 # Oldal változó

@@ -38,7 +38,7 @@ def show_energy_prediction_page():
     st.write("# Energiafogyasztás és megtakarítás előrejelzés")
     
     # E.ON árak státusz megjelenítése
-    if 'loss_price' in st.session_state and 'market_price' in st.session_state and st.session_state.loss_price is not None:
+    if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
         st.success("✅ Árak elérhetők")
     elif 'eon_error' in st.session_state and st.session_state.eon_error:
         st.error(f"❌ E.ON árak lekérése sikertelen: {st.session_state.eon_error}")
@@ -356,10 +356,10 @@ def show_energy_prediction_page():
                     next_forecast = forecast.iloc[0]
                     st.metric("Következő napi előrejelzés", f"{next_forecast:.2f} W")
                 
-                # Ár előrejelzés és megtakarítás számítás
-                if 'loss_price' in st.session_state and 'market_price' in st.session_state and st.session_state.loss_price is not None:
+                # Ár előrejelzés és költség számítás
+                if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
                     st.write("---")
-                    st.write("## Ár előrejelzés és megtakarítás számítás")
+                    st.write("## Ár előrejelzés és költség számítás")
                     
                     # Ár előrejelzés a fogyasztás alapján
                     st.write("### Energia költség előrejelzés")
@@ -367,29 +367,23 @@ def show_energy_prediction_page():
                     # Előrejelzett fogyasztás átlagos napi költségei
                     avg_forecast_consumption = forecast.mean()
                     
-                    # Költségek számítása
-                    loss_cost, market_cost, loss_price_num, market_price_num = calculate_energy_costs(
+                    # Költség számítása
+                    loss_cost, loss_price_num = calculate_energy_costs(
                         avg_forecast_consumption, 
-                        st.session_state.loss_price, 
-                        st.session_state.market_price
+                        st.session_state.loss_price
                     )
                     
-                    if loss_cost is not None and market_cost is not None:
-                        col1, col2, col3, col4 = st.columns(4)
+                    if loss_cost is not None:
+                        col1, col2 = st.columns(2)
                         
                         with col1:
                             st.metric("Átlagos napi veszteségi költség", f"{loss_cost:.2f} Ft")
                         with col2:
-                            st.metric("Átlagos napi piaci költség", f"{market_cost:.2f} Ft")
-                        with col3:
-                            savings_per_day = loss_cost - market_cost
-                            st.metric("Napi megtakarítás", f"{savings_per_day:.2f} Ft")
-                        with col4:
-                            monthly_savings = savings_per_day * 30
-                            st.metric("Havi megtakarítás", f"{monthly_savings:.2f} Ft")
+                            monthly_cost = loss_cost * 30
+                            st.metric("Havi költség", f"{monthly_cost:.2f} Ft")
                         
-                        # Megtakarítás vizualizáció
-                        st.write("### Megtakarítás vizualizáció")
+                        # Költség vizualizáció
+                        st.write("### Költség vizualizáció")
                         
                         # Adatok előkészítése a vizualizációhoz
                         forecast_dates_extended = pd.date_range(
@@ -400,20 +394,15 @@ def show_energy_prediction_page():
                         
                         # Költségek számítása minden előrejelzett napra
                         daily_loss_costs = []
-                        daily_market_costs = []
-                        daily_savings = []
                         
                         for i, consumption in enumerate(forecast):
-                            loss_cost_daily, market_cost_daily, _, _ = calculate_energy_costs(
+                            loss_cost_daily, _ = calculate_energy_costs(
                                 consumption, 
-                                st.session_state.loss_price, 
-                                st.session_state.market_price
+                                st.session_state.loss_price
                             )
                             daily_loss_costs.append(loss_cost_daily)
-                            daily_market_costs.append(market_cost_daily)
-                            daily_savings.append(loss_cost_daily - market_cost_daily)
                         
-                        # Megtakarítás grafikon
+                        # Költség grafikon
                         fig_savings = go.Figure()
                         
                         fig_savings.add_trace(go.Scatter(
@@ -425,48 +414,30 @@ def show_energy_prediction_page():
                             marker=dict(size=4)
                         ))
                         
-                        fig_savings.add_trace(go.Scatter(
-                            x=forecast_dates_extended,
-                            y=daily_market_costs,
-                            mode='lines+markers',
-                            name='Piaci ár költség',
-                            line=dict(color='blue', width=2),
-                            marker=dict(size=4)
-                        ))
-                        
-                        fig_savings.add_trace(go.Scatter(
-                            x=forecast_dates_extended,
-                            y=daily_savings,
-                            mode='lines+markers',
-                            name='Napi megtakarítás',
-                            line=dict(color='green', width=2),
-                            marker=dict(size=4)
-                        ))
-                        
                         fig_savings.update_layout(
                             xaxis_title="Dátum",
                             yaxis_title="Költség (Ft)",
                             hovermode='x unified',
                             template="plotly_white",
                             height=500,
-                            title="Előrejelzett energia költségek és megtakarítás"
+                            title="Előrejelzett energia költségek"
                         )
                         
                         st.plotly_chart(fig_savings, use_container_width=True)
                         
-                        # Összesített megtakarítás
-                        total_savings = sum(daily_savings)
-                        st.write("### Összesített megtakarítás")
+                        # Összesített költség
+                        total_cost = sum(daily_loss_costs)
+                        st.write("### Összesített költség")
                         
                         col1, col2, col3 = st.columns(3)
                         with col1:
-                            st.metric("Teljes előrejelzési időszak megtakarítás", f"{total_savings:.2f} Ft")
+                            st.metric("Teljes előrejelzési időszak költség", f"{total_cost:.2f} Ft")
                         with col2:
-                            avg_daily_savings = total_savings / forecast_periods
-                            st.metric("Átlagos napi megtakarítás", f"{avg_daily_savings:.2f} Ft")
+                            avg_daily_cost = total_cost / forecast_periods
+                            st.metric("Átlagos napi költség", f"{avg_daily_cost:.2f} Ft")
                         with col3:
-                            yearly_savings = avg_daily_savings * 365
-                            st.metric("Becsült éves megtakarítás", f"{yearly_savings:.2f} Ft")
+                            yearly_cost = avg_daily_cost * 365
+                            st.metric("Becsült éves költség", f"{yearly_cost:.2f} Ft")
                         
                     else:
                         st.error("Nem sikerült kiszámítani a költségeket. Ellenőrizze az E.ON árak formátumát.")

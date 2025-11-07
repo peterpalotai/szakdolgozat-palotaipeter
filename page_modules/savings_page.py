@@ -23,7 +23,7 @@ def show_savings_page():
     st.write("# Megtakarítások")
     
     # E.ON árak státusz megjelenítése
-    if 'loss_price' in st.session_state and 'market_price' in st.session_state and st.session_state.loss_price is not None:
+    if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
         st.success("✅ Árak elérhetők")
     elif 'eon_error' in st.session_state and st.session_state.eon_error:
         st.error(f"❌ E.ON árak lekérése sikertelen: {st.session_state.eon_error}")
@@ -54,7 +54,7 @@ def show_savings_page():
         )
     
     # Okosvezérlő vs Termosztátos vezérlő összehasonlítás
-    if 'loss_price' in st.session_state and 'market_price' in st.session_state and st.session_state.loss_price is not None:
+    if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
         st.write("---")
         st.write("## Okosvezérlő és Termosztátos vezérlő összehasonlítás")
         
@@ -133,21 +133,17 @@ def show_savings_page():
                         thermostat_avg = thermostat_daily['value'].mean()
                         
                         # Költségek számítása
-                        smart_loss_cost, smart_market_cost, _, _ = calculate_energy_costs(
-                            smart_avg, st.session_state.loss_price, st.session_state.market_price)
-                        thermostat_loss_cost, thermostat_market_cost, _, _ = calculate_energy_costs(
-                            thermostat_avg, st.session_state.loss_price, st.session_state.market_price)
+                        smart_loss_cost, _ = calculate_energy_costs(
+                            smart_avg, st.session_state.loss_price)
+                        thermostat_loss_cost, _ = calculate_energy_costs(
+                            thermostat_avg, st.session_state.loss_price)
                         
                         if smart_loss_cost is not None and thermostat_loss_cost is not None:
-                            # Megtakarítás számítás
-                            smart_savings = smart_loss_cost - smart_market_cost
-                            thermostat_savings = thermostat_loss_cost - thermostat_market_cost
-                            savings_difference = smart_savings - thermostat_savings
-                            
                             # Számított értékek
                             consumption_diff = smart_avg - thermostat_avg
-                            monthly_diff = savings_difference * 30
-                            yearly_diff = savings_difference * 365
+                            cost_diff = smart_loss_cost - thermostat_loss_cost
+                            monthly_diff = cost_diff * 30
+                            yearly_diff = cost_diff * 365
                             
                             # Összehasonlítás táblázatos megjelenítése
                             st.write("### 📊 Összehasonlítás eredmények")
@@ -177,10 +173,12 @@ def show_savings_page():
                             st.write("### 💰 Költség összehasonlítás")
                             
                             cost_data = {
-                                'Vezérlő típus': ['Okosvezérlő', 'Termosztátos vezérlő'],
-                                'Veszteségi ár költség (Ft/nap)': [f"{smart_loss_cost:.2f}", f"{thermostat_loss_cost:.2f}"],
-                                'Beszerzési ár költség (Ft/nap)': [f"{smart_market_cost:.2f}", f"{thermostat_market_cost:.2f}"],
-                                'Napi megtakarítás (Ft)': [f"{smart_savings:.2f}", f"{thermostat_savings:.2f}"]
+                                'Vezérlő típus': ['Okosvezérlő', 'Termosztátos vezérlő', 'Különbség'],
+                                'Veszteségi ár költség (Ft/nap)': [
+                                    f"{smart_loss_cost:.2f}", 
+                                    f"{thermostat_loss_cost:.2f}",
+                                    f"{cost_diff:+.2f}"
+                                ]
                             }
                             
                             cost_df = pd.DataFrame(cost_data)
@@ -190,27 +188,25 @@ def show_savings_page():
                                 hide_index=True,
                                 column_config={
                                     "Vezérlő típus": st.column_config.TextColumn("Vezérlő típus", width="medium"),
-                                    "Veszteségi ár költség (Ft/nap)": st.column_config.TextColumn("Veszteségi ár költség (Ft/nap)", width="medium"),
-                                    "Beszerzési ár költség (Ft/nap)": st.column_config.TextColumn("Beszerzési ár költség (Ft/nap)", width="medium"),
-                                    "Napi megtakarítás (Ft)": st.column_config.TextColumn("Napi megtakarítás (Ft)", width="medium")
+                                    "Veszteségi ár költség (Ft/nap)": st.column_config.TextColumn("Veszteségi ár költség (Ft/nap)", width="medium")
                                 }
                             )
                             
-                            # Megtakarítás különbség táblázat
-                            st.write("### 📈 Megtakarítás különbség")
+                            # Költség különbség táblázat
+                            st.write("### 📈 Költség különbség")
                             
-                            savings_data = {
+                            cost_diff_data = {
                                 'Időszak': ['Napi', 'Havi', 'Éves'],
                                 'Különbség (Ft)': [
-                                    f"{savings_difference:+.2f}",
+                                    f"{cost_diff:+.2f}",
                                     f"{monthly_diff:+.2f}",
                                     f"{yearly_diff:+.2f}"
                                 ]
                             }
                             
-                            savings_df = pd.DataFrame(savings_data)
+                            cost_diff_df = pd.DataFrame(cost_diff_data)
                             st.dataframe(
-                                savings_df,
+                                cost_diff_df,
                                 use_container_width=True,
                                 hide_index=True,
                                 column_config={
@@ -225,21 +221,21 @@ def show_savings_page():
                             summary_data = {
                                 'Mutató': [
                                     'Fogyasztás különbség (W)',
-                                    'Napi megtakarítás különbség (Ft)',
-                                    'Havi megtakarítás különbség (Ft)',
-                                    'Éves megtakarítás különbség (Ft)'
+                                    'Napi költség különbség (Ft)',
+                                    'Havi költség különbség (Ft)',
+                                    'Éves költség különbség (Ft)'
                                 ],
                                 'Érték': [
                                     f"{consumption_diff:+.2f}",
-                                    f"{savings_difference:+.2f}",
+                                    f"{cost_diff:+.2f}",
                                     f"{monthly_diff:+.2f}",
                                     f"{yearly_diff:+.2f}"
                                 ],
                                 'Jelentés': [
                                     "Okosvezérlő alacsonyabb fogyasztás" if consumption_diff < 0 else "Termosztátos vezérlő alacsonyabb fogyasztás",
-                                    "Okosvezérlő több megtakarítás" if savings_difference > 0 else "Termosztátos vezérlő több megtakarítás",
-                                    "Okosvezérlő több havi megtakarítás" if monthly_diff > 0 else "Termosztátos vezérlő több havi megtakarítás",
-                                    "Okosvezérlő több éves megtakarítás" if yearly_diff > 0 else "Termosztátos vezérlő több éves megtakarítás"
+                                    "Okosvezérlő alacsonyabb költség" if cost_diff < 0 else "Termosztátos vezérlő alacsonyabb költség",
+                                    "Okosvezérlő alacsonyabb havi költség" if monthly_diff < 0 else "Termosztátos vezérlő alacsonyabb havi költség",
+                                    "Okosvezérlő alacsonyabb éves költség" if yearly_diff < 0 else "Termosztátos vezérlő alacsonyabb éves költség"
                                 ]
                             }
                             

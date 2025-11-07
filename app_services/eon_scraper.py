@@ -8,12 +8,11 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 
-@st.cache_data(ttl=86400)  # Eltárolja az adatokat a cache-be 24 óráig
+@st.cache_data(ttl=2600000) 
 def scrape_eon_prices():
     
-    # XPaths for the two data points
+    # XPath for the veszteségi ár
     xpath1 = "/html/body/eon-ui-page-wrapper/main/div/eon-ui-section/eon-ui-grid-control/eon-ui-grid-control-column/eon-ui-grid-control/eon-ui-grid-control-column[1]/div[4]/table/tbody/tr[19]/td[3]"
-    xpath2 = "/html/body/eon-ui-page-wrapper/main/div/eon-ui-section/eon-ui-grid-control/eon-ui-grid-control-column/eon-ui-grid-control/eon-ui-grid-control-column[1]/eon-ui-grid-control/eon-ui-grid-control-column/div/table/tbody/tr[5]/td[10]"
     
     chrome_options = Options()
     chrome_options.add_argument('--headless')
@@ -37,45 +36,40 @@ def scrape_eon_prices():
         
        
         value1 = driver.find_element(By.XPATH, xpath1).text
-        value2 = driver.find_element(By.XPATH, xpath2).text
         
        
         print(f"Debug - Veszteségi ár: {value1}")
-        print(f"Debug - Piaci ár: {value2}")
         
-        return value1, value2, None
+        return value1, None
         
     except Exception as e:
-        return None, None, str(e)
+        return None, str(e)
     
     finally:
         if driver:
             driver.quit()
 
-def calculate_energy_costs(consumption_data, loss_price, market_price):
+def calculate_energy_costs(consumption_data, loss_price):
     """Számítja az energia költségeket a fogyasztás alapján
     
     Args:
         consumption_data: Napi átlagos fogyasztás Watt-ban (W)
         loss_price: Veszteségi energiaár (Ft/kWh)
-        market_price: Piaci energiaár (Ft/kWh)
     
     Returns:
-        tuple: (veszteségi_költség, piaci_költség, veszteségi_ár, piaci_ár)
+        tuple: (veszteségi_költség, veszteségi_ár)
     """
     try:
-        # Árak konvertálása számokká (Ft/kWh)
+        
         loss_price_num = float(loss_price.replace(',', '.').replace(' Ft/kWh', ''))
-        market_price_num = float(market_price.replace(',', '.').replace(' Ft/kWh', ''))
         
         #Napi átlagos fogyasztás konvertálása kWh-ba
         daily_consumption_kwh = (consumption_data / 1000) * 24
         
-        #Napi kültségek számítása
+        #Napi költség számítása
         daily_loss_cost = daily_consumption_kwh * loss_price_num
-        daily_market_cost = daily_consumption_kwh * market_price_num
         
-        return daily_loss_cost, daily_market_cost, loss_price_num, market_price_num
+        return daily_loss_cost, loss_price_num
     except Exception as e:
         st.error(f"Hiba a költségek számításakor: {e}")
-        return None, None, None, None
+        return None, None
