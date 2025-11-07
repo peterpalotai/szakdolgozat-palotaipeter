@@ -71,8 +71,8 @@ def show_energy_prediction_page():
     
     with col1:
         table_options = {
-            "dfv_smart_db": "Oksomérő",
-            "dfv_termosztat_db": "Termosztátos mérő"
+            "dfv_smart_db": "Oksovezérlő",
+            "dfv_termosztat_db": "Termosztátos vezérlő"
         }
         
         selected_table = st.selectbox(

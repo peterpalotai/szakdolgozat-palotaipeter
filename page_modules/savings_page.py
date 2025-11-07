@@ -53,10 +53,10 @@ def show_savings_page():
             key="comparison_end_date"
         )
     
-    # Okosmérő vs Termosztátos mérő összehasonlítás
+    # Okosvezérlő vs Termosztátos vezérlő összehasonlítás
     if 'loss_price' in st.session_state and 'market_price' in st.session_state and st.session_state.loss_price is not None:
         st.write("---")
-        st.write("## Okosmérő és Termosztátos mérő összehasonlítás")
+        st.write("## Okosvezérlő és Termosztátos vezérlő összehasonlítás")
         
         if st.button("Összehasonlítás generálása", type="primary"):
             with st.spinner("Összehasonlítás számítása..."):
@@ -154,7 +154,7 @@ def show_savings_page():
                             
                             # Fogyasztás összehasonlítás táblázat
                             consumption_data = {
-                                'Mérő típus': ['Okosmérő', 'Termosztátos mérő', 'Különbség'],
+                                'Vezérlő típus': ['Okosvezérlő', 'Termosztátos vezérlő', 'Különbség'],
                                 'Átlagos napi fogyasztás (W)': [
                                     f"{smart_avg:.2f}",
                                     f"{thermostat_avg:.2f}",
@@ -168,7 +168,7 @@ def show_savings_page():
                                 use_container_width=True,
                                 hide_index=True,
                                 column_config={
-                                    "Mérő típus": st.column_config.TextColumn("Mérő típus", width="medium"),
+                                    "Vezérlő típus": st.column_config.TextColumn("Vezérlő típus", width="medium"),
                                     "Átlagos napi fogyasztás (W)": st.column_config.TextColumn("Átlagos napi fogyasztás (W)", width="large")
                                 }
                             )
@@ -177,7 +177,7 @@ def show_savings_page():
                             st.write("### 💰 Költség összehasonlítás")
                             
                             cost_data = {
-                                'Mérő típus': ['Okosmérő', 'Termosztátos mérő'],
+                                'Vezérlő típus': ['Okosvezérlő', 'Termosztátos vezérlő'],
                                 'Veszteségi ár költség (Ft/nap)': [f"{smart_loss_cost:.2f}", f"{thermostat_loss_cost:.2f}"],
                                 'Beszerzési ár költség (Ft/nap)': [f"{smart_market_cost:.2f}", f"{thermostat_market_cost:.2f}"],
                                 'Napi megtakarítás (Ft)': [f"{smart_savings:.2f}", f"{thermostat_savings:.2f}"]
@@ -189,7 +189,7 @@ def show_savings_page():
                                 use_container_width=True,
                                 hide_index=True,
                                 column_config={
-                                    "Mérő típus": st.column_config.TextColumn("Mérő típus", width="medium"),
+                                    "Vezérlő típus": st.column_config.TextColumn("Vezérlő típus", width="medium"),
                                     "Veszteségi ár költség (Ft/nap)": st.column_config.TextColumn("Veszteségi ár költség (Ft/nap)", width="medium"),
                                     "Beszerzési ár költség (Ft/nap)": st.column_config.TextColumn("Beszerzési ár költség (Ft/nap)", width="medium"),
                                     "Napi megtakarítás (Ft)": st.column_config.TextColumn("Napi megtakarítás (Ft)", width="medium")
@@ -236,10 +236,10 @@ def show_savings_page():
                                     f"{yearly_diff:+.2f}"
                                 ],
                                 'Jelentés': [
-                                    "Okosmérő alacsonyabb fogyasztás" if consumption_diff < 0 else "Termosztátos mérő alacsonyabb fogyasztás",
-                                    "Okosmérő több megtakarítás" if savings_difference > 0 else "Termosztátos mérő több megtakarítás",
-                                    "Okosmérő több havi megtakarítás" if monthly_diff > 0 else "Termosztátos mérő több havi megtakarítás",
-                                    "Okosmérő több éves megtakarítás" if yearly_diff > 0 else "Termosztátos mérő több éves megtakarítás"
+                                    "Okosvezérlő alacsonyabb fogyasztás" if consumption_diff < 0 else "Termosztátos vezérlő alacsonyabb fogyasztás",
+                                    "Okosvezérlő több megtakarítás" if savings_difference > 0 else "Termosztátos vezérlő több megtakarítás",
+                                    "Okosvezérlő több havi megtakarítás" if monthly_diff > 0 else "Termosztátos vezérlő több havi megtakarítás",
+                                    "Okosvezérlő több éves megtakarítás" if yearly_diff > 0 else "Termosztátos vezérlő több éves megtakarítás"
                                 ]
                             }
                             
@@ -274,7 +274,7 @@ def show_savings_page():
                                     x=smart_common['datetime'],
                                     y=smart_common['value'],
                                     mode='lines+markers',
-                                    name='Okosmérő',
+                                    name='Okosvezérlő',
                                     line=dict(color='blue', width=2),
                                     marker=dict(size=4)
                                 ))
@@ -283,7 +283,7 @@ def show_savings_page():
                                     x=thermostat_common['datetime'],
                                     y=thermostat_common['value'],
                                     mode='lines+markers',
-                                    name='Termosztátos mérő',
+                                    name='Termosztátos vezérlő',
                                     line=dict(color='red', width=2),
                                     marker=dict(size=4)
                                 ))
@@ -294,7 +294,7 @@ def show_savings_page():
                                     hovermode='x unified',
                                     template="plotly_white",
                                     height=500,
-                                    title="Okosmérő és Termosztátos mérő fogyasztás összehasonlítás"
+                                    title="Okosvezérlő és Termosztátos vezérlő fogyasztás összehasonlítás"
                                 )
                                 
                                 st.plotly_chart(fig_comparison, use_container_width=True)
