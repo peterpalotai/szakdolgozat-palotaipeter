@@ -20,6 +20,32 @@ if st.sidebar.button("Megtakarítások", use_container_width=True):
 if st.sidebar.button("Energiafogyasztás és megtakarítás előrejelzés", use_container_width=True):
     st.session_state.page = "Energiafogyasztás és megtakarítás előrejelzés"
 
+st.sidebar.markdown("---")
+
+# Fűtőteljesítmény input mező
+st.sidebar.write("### Fűtőteljesítmény beállítása")
+if 'heater_power' not in st.session_state:
+    st.session_state.heater_power = 60.0  # Alapértelmezett érték W-ban (30-120 közötti)
+
+heater_power = st.sidebar.number_input(
+    "Izzó teljesítménye (W):",
+    min_value=30.0,
+    max_value=120.0,
+    value=st.session_state.heater_power,
+    step=5.0,
+    key="heater_power_input",
+    help="Az izzó teljesítménye 30 és 120 W között mozoghat."
+)
+
+st.session_state.heater_power = heater_power
+
+# CO2 megtakarítás számítás gomb
+if st.sidebar.button("CO2 megtakarítás számítása", use_container_width=True, type="primary"):
+    st.session_state.calculate_co2_savings = True
+else:
+    if 'calculate_co2_savings' not in st.session_state:
+        st.session_state.calculate_co2_savings = False
+
 
 
 # Session state inicializálása

@@ -6,7 +6,7 @@ from app_services.database import execute_query
 import streamlit as st
 
 
-def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart_db"):
+def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart_db", heater_power=None):
     """
     Lekéri a CO2 kibocsátási adatokat az Electricity Maps API-ból
     és kombinálja az energiadataival az adatbázisból.
@@ -15,6 +15,7 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
         days_to_show: Hány napra visszamenőleg kérdezze le (default: 10)
         api_key: API kulcs (ha nincs megadva, session state-ből veszi)
         table_name: Az adatbázis tábla neve (default: "dfv_smart_db")
+        heater_power: Fűtőteljesítmény (W) - ha meg van adva, arányosítja az adatbázis teljesítményét
     
     Returns:
         tuple: (co2_hourly_df, co2_hourly_with_power, daily_co2_df)
@@ -92,6 +93,17 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
                         
                         power_df['Teljesítmény (W)'] = pd.to_numeric(power_df['Teljesítmény (W)'], errors='coerce').astype(float) * 1000.0
                         
+                        # Ha van fűtőteljesítmény megadva, arányosítjuk az adatbázis teljesítményét
+                        if heater_power is not None and heater_power > 0:
+                            # Arány számítása: adatbázis_teljesítmény / fűtőteljesítmény
+                            power_df['Arány'] = power_df['Teljesítmény (W)'] / heater_power
+                            # Arányosított teljesítmény = fűtőteljesítmény * arány (ami ugyanaz, mint az adatbázis teljesítmény)
+                            # De a CO2 számításnál az arányt használjuk
+                            power_df['Arányosított_teljesítmény'] = heater_power * power_df['Arány']
+                        else:
+                            power_df['Arány'] = 1.0
+                            power_df['Arányosított_teljesítmény'] = power_df['Teljesítmény (W)']
+                        
                         power_df = power_df.sort_values('Dátum_Idő').reset_index(drop=True)
                         
                         #Mérések közti idő kiszámítása
@@ -122,13 +134,20 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
                         )
                         
                         # CO2 kibocsátás számítása grammban minden egyedi teljesítményértékhez
-                        # Energia (kWh) = teljesítmény (W) * időköz (óra) / 1000
-                        # CO2 (g) = energia (kWh) * CO2 intenzitás (g CO2/kWh)
+                        # Ha van fűtőteljesítmény, az arányosított teljesítményt használjuk
                         power_with_co2['Teljesítmény (W)'] = pd.to_numeric(power_with_co2['Teljesítmény (W)'], errors='coerce').astype(float)
                         power_with_co2['CO2 Kibocsátás (g CO2/kWh)'] = pd.to_numeric(power_with_co2['CO2 Kibocsátás (g CO2/kWh)'], errors='coerce').astype(float)
                         power_with_co2['Időköz_óra'] = pd.to_numeric(power_with_co2['Időköz_óra'], errors='coerce').astype(float)
+                        
+                        # Ha van arányosított teljesítmény oszlop, azt használjuk, különben az eredeti teljesítményt
+                        if 'Arányosított_teljesítmény' in power_with_co2.columns:
+                            power_with_co2['Számítási_teljesítmény'] = pd.to_numeric(power_with_co2['Arányosított_teljesítmény'], errors='coerce').astype(float)
+                        else:
+                            power_with_co2['Számítási_teljesítmény'] = power_with_co2['Teljesítmény (W)']
 
-                        power_with_co2['Energia (kWh)'] = (power_with_co2['Teljesítmény (W)'] * power_with_co2['Időköz_óra']) / 1000.0
+                        # Energia (kWh) = arányosított teljesítmény (W) * időköz (óra) / 1000
+                        # CO2 (g) = energia (kWh) * CO2 intenzitás (g CO2/kWh)
+                        power_with_co2['Energia (kWh)'] = (power_with_co2['Számítási_teljesítmény'] * power_with_co2['Időköz_óra']) / 1000.0
                         power_with_co2['CO2 (g)'] = power_with_co2['Energia (kWh)'] * power_with_co2['CO2 Kibocsátás (g CO2/kWh)']
                         
                         # Órás átlagos teljesítmény és összesített CO2 számítása (megjelenítéshez)
