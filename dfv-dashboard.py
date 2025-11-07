@@ -11,20 +11,20 @@ st.sidebar.title("DFV Monitoring")
 st.sidebar.markdown("---")
 
 # Navigációs gombok
-if st.sidebar.button("🏠 Főoldal", use_container_width=True):
-    st.session_state.page = "🏠 Főoldal"
+if st.sidebar.button("Főoldal", use_container_width=True):
+    st.session_state.page = "Főoldal"
 
-if st.sidebar.button("💰 Megtakarítások", use_container_width=True):
-    st.session_state.page = "💰 Megtakarítások"
+if st.sidebar.button("Megtakarítások", use_container_width=True):
+    st.session_state.page = "Megtakarítások"
 
-if st.sidebar.button("⚡ Energiafogyasztás és megtakarítás előrejelzés", use_container_width=True):
-    st.session_state.page = "⚡ Energiafogyasztás és megtakarítás előrejelzés"
+if st.sidebar.button("Energiafogyasztás és megtakarítás előrejelzés", use_container_width=True):
+    st.session_state.page = "Energiafogyasztás és megtakarítás előrejelzés"
 
 
 
 # Session state inicializálása
 if "page" not in st.session_state:
-    st.session_state.page = "🏠 Főoldal"
+    st.session_state.page = "Főoldal"
 
 # E.ON árak automatikus lekérése az alkalmazás indításakor
 if 'loss_price' not in st.session_state:
@@ -42,9 +42,9 @@ if 'loss_price' not in st.session_state:
 page = st.session_state.page
 
 # Oldal megjelenítése
-if page == "🏠 Főoldal":
+if page == "Főoldal":
     show_home_page()
-elif page == "⚡ Energiafogyasztás és megtakarítás előrejelzés":
+elif page == "Energiafogyasztás és megtakarítás előrejelzés":
     show_energy_prediction_page()
-elif page == "💰 Megtakarítások":
+elif page == "Megtakarítások":
     show_savings_page()
