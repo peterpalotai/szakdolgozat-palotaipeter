@@ -1,7 +1,7 @@
 import streamlit as st
-from page_modules.home_page import show_home_page
-from page_modules.energy_prediction_page import show_energy_prediction_page
-from page_modules.savings_page import show_savings_page
+from app_pages.home_page import show_home_page
+from app_pages.energy_prediction_page import show_energy_prediction_page
+from app_pages.savings_page import show_savings_page
 from app_services.eon_scraper import scrape_eon_prices
 
 
@@ -42,14 +42,6 @@ if st.session_state.page != "Főoldal":
     )
 
     st.session_state.heater_power = heater_power
-
-
-if st.session_state.page != "Főoldal":
-    if st.sidebar.button("CO2 megtakarítás számítása", use_container_width=True, type="primary"):
-        st.session_state.calculate_co2_savings = True
-    else:
-        if 'calculate_co2_savings' not in st.session_state:
-            st.session_state.calculate_co2_savings = False
 
 # E.ON árak automatikus lekérése az alkalmazás indításakor
 if 'loss_price' not in st.session_state:

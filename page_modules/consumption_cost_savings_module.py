@@ -1,63 +1,20 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
-from datetime import datetime, timedelta
-import warnings
-warnings.filterwarnings('ignore')
+from datetime import datetime
+import os
+import sys
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app_services.eon_scraper import calculate_energy_costs
 from app_services.database import execute_query
 
-def show_savings_page():
+def show_consumption_cost_savings(start_date, end_date):
+    """Fogyasztási és költség megtakarítások számítása és megjelenítése"""
+    st.write("## Fogyasztási és költség megtakarítások")
+    st.write("### Okosvezérlő és Termosztátos vezérlő összehasonlítás")
     
-    with open('styles.css', 'r', encoding='utf-8') as f:
-        css_content = f.read()
-    
-    st.markdown(f"""
-    <style>
-    {css_content}
-    </style>
-    """, unsafe_allow_html=True)
-    
-    st.write("# Megtakarítások")
-    
-    # E.ON árak státusz megjelenítése
     if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
-        st.success("✅ Árak elérhetők")
-    elif 'eon_error' in st.session_state and st.session_state.eon_error:
-        st.error(f"❌ E.ON árak lekérése sikertelen: {st.session_state.eon_error}")
-    else:
-        st.warning("⚠️ E.ON árak nem érhetők el")
-    
-    st.write("---")
-    
-    # Időintervallum beállítása
-    st.write("## Időintervallum beállítása")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Kezdő dátum
-        start_date = st.date_input(
-            "Kezdő dátum:",
-            value=datetime(2024, 8, 19),
-            key="comparison_start_date"
-        )
-    
-    with col2:
-        # Befejező dátum
-        end_date = st.date_input(
-            "Befejező dátum:",
-            value=datetime(2025, 8, 21),
-            key="comparison_end_date"
-        )
-    
-    # Okosvezérlő vs Termosztátos vezérlő összehasonlítás
-    if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
-        st.write("---")
-        st.write("## Okosvezérlő és Termosztátos vezérlő összehasonlítás")
-        
         if st.button("Összehasonlítás generálása", type="primary"):
             with st.spinner("Összehasonlítás számítása..."):
                 try:
@@ -102,7 +59,7 @@ def show_savings_page():
                     if smart_data and thermostat_data and len(smart_data) > 0 and len(thermostat_data) > 0:
                         # DataFrame-ek létrehozása
                         smart_df = pd.DataFrame(smart_data, columns=['date', 'time', 'value', 'current', 
-                                                                    'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity'])
+                                                                        'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity'])
                         thermostat_df = pd.DataFrame(thermostat_data, columns=['date', 'time', 'value', 'current', 
                                                                               'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity'])
                         
@@ -192,6 +149,37 @@ def show_savings_page():
                                 }
                             )
                             
+                            # Fogyasztási megtakarítás számítás
+                            if consumption_diff < 0:
+                                savings_w = abs(consumption_diff)
+                                savings_kwh_day = savings_w / 1000.0
+                                savings_kwh_month = savings_kwh_day * 30
+                                savings_kwh_year = savings_kwh_day * 365
+                                
+                                st.write("### 💡 Fogyasztási megtakarítás")
+                                
+                                savings_data = {
+                                    'Időszak': ['Napi', 'Havi', 'Éves'],
+                                    'Megtakarítás (kWh)': [
+                                        f"{savings_kwh_day:.2f}",
+                                        f"{savings_kwh_month:.2f}",
+                                        f"{savings_kwh_year:.2f}"
+                                    ]
+                                }
+                                
+                                savings_df = pd.DataFrame(savings_data)
+                                st.dataframe(
+                                    savings_df,
+                                    use_container_width=True,
+                                    hide_index=True,
+                                    column_config={
+                                        "Időszak": st.column_config.TextColumn("Időszak", width="medium"),
+                                        "Megtakarítás (kWh)": st.column_config.TextColumn("Megtakarítás (kWh)", width="medium")
+                                    }
+                                )
+                            else:
+                                st.info("Az Okosvezérlő átlagosan többet fogyaszt, mint a Termosztátos vezérlő ezen az időszakon.")
+                            
                             # Költség különbség táblázat
                             st.write("### 📈 Költség különbség")
                             
@@ -250,59 +238,58 @@ def show_savings_page():
                                     "Jelentés": st.column_config.TextColumn("Jelentés", width="large")
                                 }
                             )
-                            
-                            # Vizualizáció
-                            st.write("### Fogyasztás és költség vizualizáció")
-                            
-                            # Közös dátumok meghatározása
-                            common_dates = set(smart_daily['date']).intersection(set(thermostat_daily['date']))
-                            common_dates = sorted(list(common_dates))
-                            
-                            if len(common_dates) > 0:
-                                # Közös dátumokra szűrés
-                                smart_common = smart_daily[smart_daily['date'].isin(common_dates)].sort_values('date')
-                                thermostat_common = thermostat_daily[thermostat_daily['date'].isin(common_dates)].sort_values('date')
-                                
-                                # Összehasonlítás grafikon
-                                fig_comparison = go.Figure()
-                                
-                                fig_comparison.add_trace(go.Scatter(
-                                    x=smart_common['datetime'],
-                                    y=smart_common['value'],
-                                    mode='lines+markers',
-                                    name='Okosvezérlő',
-                                    line=dict(color='blue', width=2),
-                                    marker=dict(size=4)
-                                ))
-                                
-                                fig_comparison.add_trace(go.Scatter(
-                                    x=thermostat_common['datetime'],
-                                    y=thermostat_common['value'],
-                                    mode='lines+markers',
-                                    name='Termosztátos vezérlő',
-                                    line=dict(color='red', width=2),
-                                    marker=dict(size=4)
-                                ))
-                                
-                                fig_comparison.update_layout(
-                                    xaxis_title="Dátum",
-                                    yaxis_title="Napi átlagos fogyasztás (W)",
-                                    hovermode='x unified',
-                                    template="plotly_white",
-                                    height=500,
-                                    title="Okosvezérlő és Termosztátos vezérlő fogyasztás összehasonlítás"
-                                )
-                                
-                                st.plotly_chart(fig_comparison, use_container_width=True)
-                        
                         else:
                             st.error("Nem sikerült kiszámítani a költségeket.")
+                        
+                        # Vizualizáció
+                        st.write("### Fogyasztás és költség vizualizáció")
+                        
+                        # Közös dátumok meghatározása
+                        common_dates = set(smart_daily['date']).intersection(set(thermostat_daily['date']))
+                        common_dates = sorted(list(common_dates))
+                        
+                        if len(common_dates) > 0:
+                            # Közös dátumokra szűrés
+                            smart_common = smart_daily[smart_daily['date'].isin(common_dates)].sort_values('date')
+                            thermostat_common = thermostat_daily[thermostat_daily['date'].isin(common_dates)].sort_values('date')
+                            
+                            # Összehasonlítás grafikon
+                            fig_comparison = go.Figure()
+                            
+                            fig_comparison.add_trace(go.Scatter(
+                                x=smart_common['datetime'],
+                                y=smart_common['value'],
+                                mode='lines+markers',
+                                name='Okosvezérlő',
+                                line=dict(color='blue', width=2),
+                                marker=dict(size=4)
+                            ))
+                            
+                            fig_comparison.add_trace(go.Scatter(
+                                x=thermostat_common['datetime'],
+                                y=thermostat_common['value'],
+                                mode='lines+markers',
+                                name='Termosztátos vezérlő',
+                                line=dict(color='red', width=2),
+                                marker=dict(size=4)
+                            ))
+                            
+                            fig_comparison.update_layout(
+                                xaxis_title="Dátum",
+                                yaxis_title="Napi átlagos fogyasztás (W)",
+                                hovermode='x unified',
+                                template="plotly_white",
+                                height=500,
+                                title="Okosvezérlő és Termosztátos vezérlő fogyasztás összehasonlítás"
+                            )
+                            
+                            st.plotly_chart(fig_comparison, use_container_width=True)
                     
                     else:
                         st.warning("Nincs elegendő adat az összehasonlításhoz!")
                         
                 except Exception as e:
                     st.error(f"Hiba az összehasonlítás során: {e}")
-    
     else:
         st.warning("⚠️ Az összehasonlításhoz szükségesek az E.ON árak!")
+
