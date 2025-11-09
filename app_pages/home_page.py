@@ -700,7 +700,7 @@ def show_home_page():
                 st.write("---")
                 st.write("### Korábbi 10 nap CO2 kibocsátás összesített adatai")
                 display_daily_df = daily_co2_df[['Dátum', 'Napi energia (kWh)', 'Átlag CO2 (g CO2/kWh)', 'Napi CO2 (g)']].copy()
-                display_daily_df.columns = ['Dátum', 'Energia (kWh)', 'Átlagos CO2 Intenzitás (g/kWh)', 'Napi CO2 Kibocsátás (g)']
+                display_daily_df.columns = ['Dátum', 'Energia (kWh)', 'CO2 intenzitás (g/kWh)', 'Napi CO2 kibocsátás (g)']
                 st.dataframe(display_daily_df, use_container_width=True)
             
             # Statisztikák (órás bontásba) - grammban
@@ -774,6 +774,6 @@ def show_home_page():
             # Táblázatos megjelenítés - grammban
             st.write("### Részletes napi adatok")
             display_df = daily_co2_df[['Dátum', 'Napi energia (kWh)', 'Átlag CO2 (g CO2/kWh)', 'Napi CO2 (g)']].copy()
-            display_df.columns = ['Dátum', 'Energia (kWh)', 'Átlagos CO2 Intenzitás (g/kWh)', 'Napi CO2 (g)']
+            display_df.columns = ['Dátum', 'Energia (kWh)', 'CO2 intenzitás (g/kWh)', 'Napi CO2 (g)']
             st.dataframe(display_df, use_container_width=True)
     
