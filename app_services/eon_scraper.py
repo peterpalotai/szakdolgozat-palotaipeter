@@ -11,7 +11,7 @@ import time
 @st.cache_data(ttl=2600000) 
 def scrape_eon_prices():
     
-    # XPath for the veszteségi ár
+    
     xpath1 = "/html/body/eon-ui-page-wrapper/main/div/eon-ui-section/eon-ui-grid-control/eon-ui-grid-control-column/eon-ui-grid-control/eon-ui-grid-control-column[1]/div[4]/table/tbody/tr[19]/td[3]"
     
     chrome_options = Options()
@@ -63,10 +63,10 @@ def calculate_energy_costs(consumption_data, loss_price):
         
         loss_price_num = float(loss_price.replace(',', '.').replace(' Ft/kWh', ''))
         
-        #Napi átlagos fogyasztás konvertálása kWh-ba
+        #Napi fogyasztás kwh
         daily_consumption_kwh = (consumption_data / 1000) * 24
         
-        #Napi költség számítása
+        
         daily_loss_cost = daily_consumption_kwh * loss_price_num
         
         return daily_loss_cost, loss_price_num
