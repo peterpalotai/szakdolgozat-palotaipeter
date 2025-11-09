@@ -668,10 +668,10 @@ def show_home_page():
                     mode='markers',
                     name='CO2 kibocsátás vs Teljesítmény',
                     marker=dict(
-                        color='#4ECDC4',
+                        color='#EA1C0A',
                         size=4,
                         opacity=0.6,
-                        line=dict(width=0.5, color='#2C8A7E')
+                        line=dict(width=0.5, color='#C41608')
                     ),
                     hovertemplate='<b>Teljesítmény:</b> %{x:.2f} W<br>' +
                                 '<b>CO2 Kibocsátás:</b> %{y:.2f} g<br>' +
@@ -704,8 +704,7 @@ def show_home_page():
                 st.dataframe(display_daily_df, use_container_width=True)
             
             # Statisztikák (órás bontásba) - grammban
-            total_co2_g = co2_hourly_with_power['Óras CO2 (g)'].sum()
-            st.metric("Összes CO2", f"{total_co2_g:.2f} g")
+            # Összes CO2 metrika eltávolítva
         
         
         elif 'co2_daily_dataframe' in st.session_state and st.session_state['co2_daily_dataframe'] is not None:
@@ -731,10 +730,10 @@ def show_home_page():
                         mode='markers',
                         name='Napi CO2 kibocsátás vs Teljesítmény',
                         marker=dict(
-                            color='#4ECDC4',
+                            color='#EA1C0A',
                             size=8,
                             opacity=0.7,
-                            line=dict(width=2, color='#2C8A7E')
+                            line=dict(width=2, color='#C41608')
                         ),
                         hovertemplate='<b>Teljesítmény:</b> %{x:.2f} W<br>' +
                                     '<b>CO2 Kibocsátás:</b> %{y:.2f} g<br>' +
@@ -757,18 +756,15 @@ def show_home_page():
                     st.warning("Nincs elegendő adat a diagram megjelenítéséhez.")
             
             # Statisztikák - grammban
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3 = st.columns(3)
             
             with col1:
-                total_co2_g = daily_co2_df['Napi CO2 (g)'].sum()
-                st.metric("Összes CO2", f"{total_co2_g:.2f} g")
-            with col2:
                 avg_daily_co2_g = daily_co2_df['Napi CO2 (g)'].mean()
                 st.metric("Átlagos napi CO2", f"{avg_daily_co2_g:.2f} g")
-            with col3:
+            with col2:
                 max_daily_co2_g = daily_co2_df['Napi CO2 (g)'].max()
                 st.metric("Maximum napi CO2", f"{max_daily_co2_g:.2f} g")
-            with col4:
+            with col3:
                 st.metric("Napok száma", len(daily_co2_df))
             
             # Táblázatos megjelenítés - grammban

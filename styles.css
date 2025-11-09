@@ -14,7 +14,31 @@
     max-width: 100% !important;
 }
 
-/* Ensure the styling persists on interactions */
+
 .main .block-container > div {
     max-width: 80rem;
+}
+
+
+button[kind="primary"] {
+    background-color: #EA1C0A !important;
+    border-color: #EA1C0A !important;
+    color: white !important;
+}
+
+button[kind="primary"]:active,
+button[kind="primary"]:focus {
+    background-color: #EA1C0A !important;
+    border-color: #EA1C0A !important;
+    box-shadow: 0 0 0 0.2rem rgba(234, 28, 10, 0.5) !important;
+}
+
+/* Metric delta positive */
+[data-testid="stMetricDelta"] {
+    color: #EA1C0A !important;
+}
+
+/* Progress bar */
+.stProgress > div > div > div {
+    background-color: #EA1C0A !important;
 }

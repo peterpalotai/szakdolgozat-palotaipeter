@@ -201,9 +201,9 @@ def show_co2_savings():
                 ))
                 
                 fig_savings.update_layout(
-                    title="Napi CO2 Megtakarítás",
+                    title="Napi CO2 megtakarítás",
                     xaxis_title="Dátum",
-                    yaxis_title="CO2 Megtakarítás (g)",
+                    yaxis_title="CO2 megtakarítás (g)",
                     template="plotly_white",
                     height=400
                 )
