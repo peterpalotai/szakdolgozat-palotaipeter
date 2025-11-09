@@ -53,33 +53,13 @@ def show_savings_page():
     
     st.write("---")
     
-    # Időintervallum beállítása
-    st.write("## Időintervallum beállítása")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Kezdő dátum
-        start_date = st.date_input(
-            "Kezdő dátum:",
-            value=datetime(2024, 8, 19),
-            key="comparison_start_date"
-        )
-    
-    with col2:
-        # Befejező dátum
-        end_date = st.date_input(
-            "Befejező dátum:",
-            value=datetime(2025, 8, 21),
-            key="comparison_end_date"
-        )
-    
-    st.write("---")
-    
     # CO2 megtakarítások
     if savings_type == "CO2 megtakarítások":
         show_co2_savings()
     
     # Fogyasztási és költség megtakarítások
     elif savings_type == "Fogyasztási és költség megtakarítások":
+        # Alapértelmezett dátumok használata
+        start_date = datetime(2024, 8, 19).date()
+        end_date = datetime(2025, 8, 21).date()
         show_consumption_cost_savings(start_date, end_date)

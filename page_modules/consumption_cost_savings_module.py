@@ -12,13 +12,16 @@ from app_services.database import execute_query
 def show_consumption_cost_savings(start_date, end_date):
     """Fogyasztási és költség megtakarítások számítása és megjelenítése"""
     st.write("## Fogyasztási és költség megtakarítások")
-    st.write("### Okosvezérlő és Termosztátos vezérlő összehasonlítás")
     
     if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
-        if st.button("Összehasonlítás generálása", type="primary"):
+        heater_power = st.session_state.get('heater_power', None)
+        
+        if heater_power is None or heater_power <= 0:
+            st.warning("⚠️ Kérjük, adjon meg egy érvényes hagyományos fűtőtest teljesítményt a navigációs sávban!")
+        else:
             with st.spinner("Összehasonlítás számítása..."):
                 try:
-                    # Mindkét tábla adatainak lekérése
+                    # Okosvezérlő adatainak lekérése
                     smart_query = f"""
                     SELECT date, time, 
                            trend_smart_p as value,
@@ -36,6 +39,7 @@ def show_consumption_cost_savings(start_date, end_date):
                     ORDER BY date, time
                     """
                     
+                    # Termosztátos vezérlő adatainak lekérése
                     thermostat_query = f"""
                     SELECT date, time, 
                            trend_termosztat_p as value,
@@ -88,30 +92,65 @@ def show_consumption_cost_savings(start_date, end_date):
                         # Átlagos napi fogyasztás
                         smart_avg = smart_daily['value'].mean()
                         thermostat_avg = thermostat_daily['value'].mean()
+                        # Hagyományos fűtőtest konstans teljesítménye (W)
+                        heater_avg = heater_power
+                        
+                        # Veszteségi ár kinyerése
+                        try:
+                            loss_price_num = float(st.session_state.loss_price.replace(',', '.').replace(' Ft/kWh', ''))
+                        except:
+                            loss_price_num = None
+                        
+                        # Pontosabb költség számítás órás adatokból
+                        # Okosvezérlő és Termosztátos vezérlő: órás energia = teljesítmény (W) / 1000 * (időtartam órában)
+                        # Feltételezzük, hogy 15 perces bontásban vannak az adatok
+                        time_interval_hours = 0.25  # 15 perc = 0.25 óra
+                        
+                        # Napi energia összesítés
+                        smart_daily_energy = smart_df.groupby('date').apply(
+                            lambda x: ((x['value'] / 1000.0) * time_interval_hours).sum()
+                        ).mean()  # Átlagos napi energia kWh-ban
+                        
+                        thermostat_daily_energy = thermostat_df.groupby('date').apply(
+                            lambda x: ((x['value'] / 1000.0) * time_interval_hours).sum()
+                        ).mean()  # Átlagos napi energia kWh-ban
+                        
+                        # Hagyományos fűtőtest: konstans teljesítmény 24 órán át
+                        heater_daily_energy = (heater_power / 1000.0) * 24  # kWh
                         
                         # Költségek számítása
-                        smart_loss_cost, _ = calculate_energy_costs(
-                            smart_avg, st.session_state.loss_price)
-                        thermostat_loss_cost, _ = calculate_energy_costs(
-                            thermostat_avg, st.session_state.loss_price)
+                        if loss_price_num is not None:
+                            smart_loss_cost = smart_daily_energy * loss_price_num  # Ft/nap
+                            thermostat_loss_cost = thermostat_daily_energy * loss_price_num  # Ft/nap
+                            heater_loss_cost = heater_daily_energy * loss_price_num  # Ft/nap
+                        else:
+                            smart_loss_cost = None
+                            thermostat_loss_cost = None
+                            heater_loss_cost = None
                         
-                        if smart_loss_cost is not None and thermostat_loss_cost is not None:
-                            # Számított értékek
-                            consumption_diff = smart_avg - thermostat_avg
-                            cost_diff = smart_loss_cost - thermostat_loss_cost
-                            monthly_diff = cost_diff * 30
-                            yearly_diff = cost_diff * 365
+                        if smart_loss_cost is not None and thermostat_loss_cost is not None and heater_loss_cost is not None:
+                            # Számított értékek - Okosvezérlő vs Hagyományos fűtőtest
+                            consumption_diff_smart_heater = smart_avg - heater_avg
+                            cost_diff_smart_heater = smart_loss_cost - heater_loss_cost
+                            monthly_diff_smart_heater = cost_diff_smart_heater * 30
+                            yearly_diff_smart_heater = cost_diff_smart_heater * 365
+                            
+                            # Számított értékek - Termosztátos vezérlő vs Hagyományos fűtőtest
+                            consumption_diff_thermo_heater = thermostat_avg - heater_avg
+                            cost_diff_thermo_heater = thermostat_loss_cost - heater_loss_cost
+                            monthly_diff_thermo_heater = cost_diff_thermo_heater * 30
+                            yearly_diff_thermo_heater = cost_diff_thermo_heater * 365
                             
                             # Összehasonlítás táblázatos megjelenítése
                             st.write("### 📊 Összehasonlítás eredmények")
                             
                             # Fogyasztás összehasonlítás táblázat
                             consumption_data = {
-                                'Vezérlő típus': ['Okosvezérlő', 'Termosztátos vezérlő', 'Különbség'],
+                                'Vezérlő típus': ['Okosvezérlő', 'Termosztátos vezérlő', 'Hagyományos fűtőtest'],
                                 'Átlagos napi fogyasztás (W)': [
                                     f"{smart_avg:.2f}",
                                     f"{thermostat_avg:.2f}",
-                                    f"{consumption_diff:+.2f}"
+                                    f"{heater_avg:.2f}"
                                 ]
                             }
                             
@@ -130,11 +169,11 @@ def show_consumption_cost_savings(start_date, end_date):
                             st.write("### 💰 Költség összehasonlítás")
                             
                             cost_data = {
-                                'Vezérlő típus': ['Okosvezérlő', 'Termosztátos vezérlő', 'Különbség'],
+                                'Vezérlő típus': ['Okosvezérlő', 'Termosztátos vezérlő', 'Hagyományos fűtőtest'],
                                 'Veszteségi ár költség (Ft/nap)': [
-                                    f"{smart_loss_cost:.2f}", 
-                                    f"{thermostat_loss_cost:.2f}",
-                                    f"{cost_diff:+.2f}"
+                                    f"{smart_loss_cost:.2f}",
+                                    f"{thermostat_loss_cost:.2f}", 
+                                    f"{heater_loss_cost:.2f}"
                                 ]
                             }
                             
@@ -150,51 +189,107 @@ def show_consumption_cost_savings(start_date, end_date):
                             )
                             
                             # Fogyasztási megtakarítás számítás
-                            if consumption_diff < 0:
-                                savings_w = abs(consumption_diff)
-                                savings_kwh_day = savings_w / 1000.0
-                                savings_kwh_month = savings_kwh_day * 30
-                                savings_kwh_year = savings_kwh_day * 365
+                            st.write("### 💡 Fogyasztási megtakarítás")
+                            
+                            # Okosvezérlő vs Hagyományos fűtőtest
+                            if consumption_diff_smart_heater < 0:
+                                savings_w = abs(consumption_diff_smart_heater)
+                                # Napi átlagos fogyasztás különbség W-ban
+                                savings_w_day = savings_w
+                                # Havi átlagos fogyasztás különbség W-ban (napi átlag * 30)
+                                savings_w_month = savings_w * 30
+                                # Éves átlagos fogyasztás különbség W-ban (napi átlag * 365)
+                                savings_w_year = savings_w * 365
                                 
-                                st.write("### 💡 Fogyasztási megtakarítás")
-                                
-                                savings_data = {
+                                st.write("#### Okosvezérlő vs Hagyományos fűtőtest")
+                                savings_data_smart_heater = {
                                     'Időszak': ['Napi', 'Havi', 'Éves'],
-                                    'Megtakarítás (kWh)': [
-                                        f"{savings_kwh_day:.2f}",
-                                        f"{savings_kwh_month:.2f}",
-                                        f"{savings_kwh_year:.2f}"
+                                    'Megtakarítás (W)': [
+                                        f"{savings_w_day:.2f}",
+                                        f"{savings_w_month:.2f}",
+                                        f"{savings_w_year:.2f}"
                                     ]
                                 }
-                                
-                                savings_df = pd.DataFrame(savings_data)
+                                savings_df_smart_heater = pd.DataFrame(savings_data_smart_heater)
                                 st.dataframe(
-                                    savings_df,
+                                    savings_df_smart_heater,
                                     use_container_width=True,
                                     hide_index=True,
                                     column_config={
                                         "Időszak": st.column_config.TextColumn("Időszak", width="medium"),
-                                        "Megtakarítás (kWh)": st.column_config.TextColumn("Megtakarítás (kWh)", width="medium")
+                                        "Megtakarítás (W)": st.column_config.TextColumn("Megtakarítás (W)", width="medium")
                                     }
                                 )
-                            else:
-                                st.info("Az Okosvezérlő átlagosan többet fogyaszt, mint a Termosztátos vezérlő ezen az időszakon.")
+                            
+                            # Termosztátos vezérlő vs Hagyományos fűtőtest
+                            if consumption_diff_thermo_heater < 0:
+                                savings_w = abs(consumption_diff_thermo_heater)
+                                # Napi átlagos fogyasztás különbség W-ban
+                                savings_w_day = savings_w
+                                # Havi átlagos fogyasztás különbség W-ban (napi átlag * 30)
+                                savings_w_month = savings_w * 30
+                                # Éves átlagos fogyasztás különbség W-ban (napi átlag * 365)
+                                savings_w_year = savings_w * 365
+                                
+                                st.write("#### Termosztátos vezérlő vs Hagyományos fűtőtest")
+                                savings_data_thermo_heater = {
+                                    'Időszak': ['Napi', 'Havi', 'Éves'],
+                                    'Megtakarítás (W)': [
+                                        f"{savings_w_day:.2f}",
+                                        f"{savings_w_month:.2f}",
+                                        f"{savings_w_year:.2f}"
+                                    ]
+                                }
+                                savings_df_thermo_heater = pd.DataFrame(savings_data_thermo_heater)
+                                st.dataframe(
+                                    savings_df_thermo_heater,
+                                    use_container_width=True,
+                                    hide_index=True,
+                                    column_config={
+                                        "Időszak": st.column_config.TextColumn("Időszak", width="medium"),
+                                        "Megtakarítás (W)": st.column_config.TextColumn("Megtakarítás (W)", width="medium")
+                                    }
+                                )
                             
                             # Költség különbség táblázat
                             st.write("### 📈 Költség különbség")
                             
-                            cost_diff_data = {
+                            # Okosvezérlő vs Hagyományos fűtőtest
+                            st.write("#### Okosvezérlő vs Hagyományos fűtőtest")
+                            cost_diff_data_smart_heater = {
                                 'Időszak': ['Napi', 'Havi', 'Éves'],
                                 'Különbség (Ft)': [
-                                    f"{cost_diff:+.2f}",
-                                    f"{monthly_diff:+.2f}",
-                                    f"{yearly_diff:+.2f}"
+                                    f"{cost_diff_smart_heater:+.2f}",
+                                    f"{monthly_diff_smart_heater:+.2f}",
+                                    f"{yearly_diff_smart_heater:+.2f}"
                                 ]
                             }
                             
-                            cost_diff_df = pd.DataFrame(cost_diff_data)
+                            cost_diff_df_smart_heater = pd.DataFrame(cost_diff_data_smart_heater)
                             st.dataframe(
-                                cost_diff_df,
+                                cost_diff_df_smart_heater,
+                                use_container_width=True,
+                                hide_index=True,
+                                column_config={
+                                    "Időszak": st.column_config.TextColumn("Időszak", width="medium"),
+                                    "Különbség (Ft)": st.column_config.TextColumn("Különbség (Ft)", width="medium")
+                                }
+                            )
+                            
+                            # Termosztátos vezérlő vs Hagyományos fűtőtest
+                            st.write("#### Termosztátos vezérlő vs Hagyományos fűtőtest")
+                            cost_diff_data_thermo_heater = {
+                                'Időszak': ['Napi', 'Havi', 'Éves'],
+                                'Különbség (Ft)': [
+                                    f"{cost_diff_thermo_heater:+.2f}",
+                                    f"{monthly_diff_thermo_heater:+.2f}",
+                                    f"{yearly_diff_thermo_heater:+.2f}"
+                                ]
+                            }
+                            
+                            cost_diff_df_thermo_heater = pd.DataFrame(cost_diff_data_thermo_heater)
+                            st.dataframe(
+                                cost_diff_df_thermo_heater,
                                 use_container_width=True,
                                 hide_index=True,
                                 column_config={
@@ -207,23 +302,25 @@ def show_consumption_cost_savings(start_date, end_date):
                             st.write("### 📋 Összefoglaló")
                             
                             summary_data = {
-                                'Mutató': [
-                                    'Fogyasztás különbség (W)',
-                                    'Napi költség különbség (Ft)',
-                                    'Havi költség különbség (Ft)',
-                                    'Éves költség különbség (Ft)'
+                                'Összehasonlítás': [
+                                    'Okosvezérlő vs Hagyományos fűtőtest',
+                                    'Termosztátos vezérlő vs Hagyományos fűtőtest'
                                 ],
-                                'Érték': [
-                                    f"{consumption_diff:+.2f}",
-                                    f"{cost_diff:+.2f}",
-                                    f"{monthly_diff:+.2f}",
-                                    f"{yearly_diff:+.2f}"
+                                'Fogyasztás különbség (W)': [
+                                    f"{consumption_diff_smart_heater:+.2f}",
+                                    f"{consumption_diff_thermo_heater:+.2f}"
                                 ],
-                                'Jelentés': [
-                                    "Okosvezérlő alacsonyabb fogyasztás" if consumption_diff < 0 else "Termosztátos vezérlő alacsonyabb fogyasztás",
-                                    "Okosvezérlő alacsonyabb költség" if cost_diff < 0 else "Termosztátos vezérlő alacsonyabb költség",
-                                    "Okosvezérlő alacsonyabb havi költség" if monthly_diff < 0 else "Termosztátos vezérlő alacsonyabb havi költség",
-                                    "Okosvezérlő alacsonyabb éves költség" if yearly_diff < 0 else "Termosztátos vezérlő alacsonyabb éves költség"
+                                'Napi költség különbség (Ft)': [
+                                    f"{cost_diff_smart_heater:+.2f}",
+                                    f"{cost_diff_thermo_heater:+.2f}"
+                                ],
+                                'Havi költség különbség (Ft)': [
+                                    f"{monthly_diff_smart_heater:+.2f}",
+                                    f"{monthly_diff_thermo_heater:+.2f}"
+                                ],
+                                'Éves költség különbség (Ft)': [
+                                    f"{yearly_diff_smart_heater:+.2f}",
+                                    f"{yearly_diff_thermo_heater:+.2f}"
                                 ]
                             }
                             
@@ -231,12 +328,7 @@ def show_consumption_cost_savings(start_date, end_date):
                             st.dataframe(
                                 summary_df,
                                 use_container_width=True,
-                                hide_index=True,
-                                column_config={
-                                    "Mutató": st.column_config.TextColumn("Mutató", width="large"),
-                                    "Érték": st.column_config.TextColumn("Érték", width="medium"),
-                                    "Jelentés": st.column_config.TextColumn("Jelentés", width="large")
-                                }
+                                hide_index=True
                             )
                         else:
                             st.error("Nem sikerült kiszámítani a költségeket.")
@@ -244,35 +336,36 @@ def show_consumption_cost_savings(start_date, end_date):
                         # Vizualizáció
                         st.write("### Fogyasztás és költség vizualizáció")
                         
-                        # Közös dátumok meghatározása
-                        common_dates = set(smart_daily['date']).intersection(set(thermostat_daily['date']))
-                        common_dates = sorted(list(common_dates))
-                        
-                        if len(common_dates) > 0:
-                            # Közös dátumokra szűrés
-                            smart_common = smart_daily[smart_daily['date'].isin(common_dates)].sort_values('date')
-                            thermostat_common = thermostat_daily[thermostat_daily['date'].isin(common_dates)].sort_values('date')
-                            
+                        if len(smart_daily) > 0 and len(thermostat_daily) > 0:
                             # Összehasonlítás grafikon
                             fig_comparison = go.Figure()
                             
                             fig_comparison.add_trace(go.Scatter(
-                                x=smart_common['datetime'],
-                                y=smart_common['value'],
+                                x=smart_daily['datetime'],
+                                y=smart_daily['value'],
                                 mode='lines+markers',
                                 name='Okosvezérlő',
-                                line=dict(color='blue', width=2),
+                                line=dict(color='#EA1C0A', width=2),
                                 marker=dict(size=4)
                             ))
                             
                             fig_comparison.add_trace(go.Scatter(
-                                x=thermostat_common['datetime'],
-                                y=thermostat_common['value'],
+                                x=thermostat_daily['datetime'],
+                                y=thermostat_daily['value'],
                                 mode='lines+markers',
                                 name='Termosztátos vezérlő',
-                                line=dict(color='red', width=2),
+                                line=dict(color='blue', width=2),
                                 marker=dict(size=4)
                             ))
+                            
+                            # Hagyományos fűtőtest konstans értéke
+                            fig_comparison.add_hline(
+                                y=heater_power,
+                                line_dash="dash",
+                                line_color="gray",
+                                annotation_text="Hagyományos fűtőtest",
+                                annotation_position="right"
+                            )
                             
                             fig_comparison.update_layout(
                                 xaxis_title="Dátum",

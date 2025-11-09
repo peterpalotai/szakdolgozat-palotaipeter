@@ -33,12 +33,11 @@ button[kind="primary"]:focus {
     box-shadow: 0 0 0 0.2rem rgba(234, 28, 10, 0.5) !important;
 }
 
-/* Metric delta positive */
-[data-testid="stMetricDelta"] {
+[data-testid="stMetricDelta"]:has(span[style*="color: rgb(255, 75, 75)"]) {
     color: #EA1C0A !important;
 }
 
-/* Progress bar */
+
 .stProgress > div > div > div {
     background-color: #EA1C0A !important;
 }
