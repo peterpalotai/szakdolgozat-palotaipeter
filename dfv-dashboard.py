@@ -44,16 +44,19 @@ if st.session_state.page != "Főoldal":
     st.session_state.heater_power = heater_power
 
 # E.ON árak automatikus lekérése az alkalmazás indításakor
-if 'loss_price' not in st.session_state:
+if 'loss_prices' not in st.session_state:
     with st.spinner("E.ON árak automatikus lekérése..."):
-        loss_price, error = scrape_eon_prices()
+        loss_prices, error = scrape_eon_prices()
     
     if error:
-        st.session_state.loss_price = None
+        st.session_state.loss_prices = None
         st.session_state.eon_error = error
     else:
-        st.session_state.loss_price = loss_price
+        st.session_state.loss_prices = loss_prices  # Dictionary: {'2024': '95,59 Ft/kWh', '2025': '51,37 Ft/kWh'}
         st.session_state.eon_error = None
+        # Visszafelé kompatibilitás: az első árat (2025-ös) használjuk alapértelmezettként
+        if loss_prices and '2025' in loss_prices:
+            st.session_state.loss_price = loss_prices['2025']
 
 # Oldal változó
 page = st.session_state.page

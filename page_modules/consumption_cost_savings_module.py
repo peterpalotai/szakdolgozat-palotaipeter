@@ -14,7 +14,7 @@ def show_consumption_cost_savings(start_date, end_date):
     """Fogyasztási és költség megtakarítások számítása és megjelenítése"""
     st.write("## Fogyasztási és költség megtakarítások")
     
-    if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
+    if 'loss_prices' in st.session_state and st.session_state.loss_prices is not None:
         heater_power = st.session_state.get('heater_power', None)
         
         if heater_power is None or heater_power <= 0:
@@ -98,11 +98,22 @@ def show_consumption_cost_savings(start_date, end_date):
                         smart_daily_energy_df['datetime'] = pd.to_datetime(smart_daily_energy_df['date'])
                         thermostat_daily_energy_df['datetime'] = pd.to_datetime(thermostat_daily_energy_df['date'])
                         
-                        # Veszteségi ár kinyerése
-                        try:
-                            loss_price_num = float(st.session_state.loss_price.replace(',', '.').replace(' Ft/kWh', ''))
-                        except:
-                            loss_price_num = None
+                        # Veszteségi árak kinyerése dátum alapján
+                        loss_prices = st.session_state.get('loss_prices', None)
+                        if loss_prices:
+                            try:
+                                # 2024-es és 2025-ös árak kinyerése
+                                price_2024_str = loss_prices.get('2024', '')
+                                price_2025_str = loss_prices.get('2025', '')
+                                
+                                loss_price_2024 = float(price_2024_str.replace(',', '.').replace(' Ft/kWh', '')) if price_2024_str else None
+                                loss_price_2025 = float(price_2025_str.replace(',', '.').replace(' Ft/kWh', '')) if price_2025_str else None
+                            except:
+                                loss_price_2024 = None
+                                loss_price_2025 = None
+                        else:
+                            loss_price_2024 = None
+                            loss_price_2025 = None
                         
                      
                         smart_daily_energy = smart_daily_energy_df['daily_energy_kwh'].mean()
@@ -143,20 +154,55 @@ def show_consumption_cost_savings(start_date, end_date):
                         # Hagyományos fűtőtest konstans teljesítménye (W)
                         heater_avg = heater_power
                         
-                        # Veszteségi energiaár költségek számítása
+                        # Veszteségi energiaár költségek számítása dátum alapján
                         # Költség = Napi energia (kWh) × Veszteségi ár (Ft/kWh)
-                        if loss_price_num is not None:
-                            smart_loss_cost = smart_daily_energy * loss_price_num  # Ft/nap
-                            thermostat_loss_cost = thermostat_daily_energy * loss_price_num  # Ft/nap
-                            heater_loss_cost = heater_daily_energy * loss_price_num  # Ft/nap
+                        # Dátum alapján választjuk ki a megfelelő árat (2024-es vagy 2025-ös)
+                        if loss_price_2024 is not None and loss_price_2025 is not None:
+                            # Átlagos napi költségek számítása - dátum alapján súlyozott átlag
+                            # Számoljuk meg, hogy hány nap 2024-es és hány nap 2025-ös
+                            smart_daily_energy_df['year'] = pd.to_datetime(smart_daily_energy_df['date']).dt.year
+                            thermostat_daily_energy_df['year'] = pd.to_datetime(thermostat_daily_energy_df['date']).dt.year
+                            
+                            # 2024-es és 2025-ös napok száma
+                            days_2024_smart = (smart_daily_energy_df['year'] == 2024).sum()
+                            days_2025_smart = (smart_daily_energy_df['year'] == 2025).sum()
+                            total_days_smart = len(smart_daily_energy_df)
+                            
+                            days_2024_thermo = (thermostat_daily_energy_df['year'] == 2024).sum()
+                            days_2025_thermo = (thermostat_daily_energy_df['year'] == 2025).sum()
+                            total_days_thermo = len(thermostat_daily_energy_df)
+                            
+                            # Súlyozott átlagos ár számítása
+                            if total_days_smart > 0:
+                                avg_price_smart = (days_2024_smart * loss_price_2024 + days_2025_smart * loss_price_2025) / total_days_smart
+                            else:
+                                avg_price_smart = loss_price_2025  # Alapértelmezett: 2025-ös ár
+                            
+                            if total_days_thermo > 0:
+                                avg_price_thermo = (days_2024_thermo * loss_price_2024 + days_2025_thermo * loss_price_2025) / total_days_thermo
+                            else:
+                                avg_price_thermo = loss_price_2025  # Alapértelmezett: 2025-ös ár
+                            
+                            # Átlagos napi költségek számítása
+                            smart_loss_cost = smart_daily_energy * avg_price_smart  # Ft/nap
+                            thermostat_loss_cost = thermostat_daily_energy * avg_price_thermo  # Ft/nap
+                            
+                            # Hagyományos fűtőtest költsége - dátum alapján súlyozott átlag
+                            # Feltételezzük, hogy ugyanaz az időszak
+                            if total_days_smart > 0:
+                                avg_price_heater = (days_2024_smart * loss_price_2024 + days_2025_smart * loss_price_2025) / total_days_smart
+                            else:
+                                avg_price_heater = loss_price_2025
+                            
+                            heater_loss_cost = heater_daily_energy * avg_price_heater  # Ft/nap
                             
                             # Megtakarítás számítása veszteségi energiaár alapján
                             # Megtakarítás = (Hagyományos napi energia - Okosvezérlő napi energia) × Veszteségi ár
                             smart_savings_energy = heater_daily_energy - smart_daily_energy  # kWh/nap
                             thermostat_savings_energy = heater_daily_energy - thermostat_daily_energy  # kWh/nap
                             
-                            smart_savings_cost = smart_savings_energy * loss_price_num  # Ft/nap
-                            thermostat_savings_cost = thermostat_savings_energy * loss_price_num  # Ft/nap
+                            smart_savings_cost = smart_savings_energy * avg_price_smart  # Ft/nap
+                            thermostat_savings_cost = thermostat_savings_energy * avg_price_thermo  # Ft/nap
                         else:
                             smart_loss_cost = None
                             thermostat_loss_cost = None
@@ -165,6 +211,9 @@ def show_consumption_cost_savings(start_date, end_date):
                             thermostat_savings_cost = None
                             smart_savings_energy = None
                             thermostat_savings_energy = None
+                            avg_price_smart = None
+                            avg_price_thermo = None
+                            avg_price_heater = None
                         
                         if (smart_loss_cost is not None and thermostat_loss_cost is not None and heater_loss_cost is not None 
                             and smart_savings_cost is not None and thermostat_savings_cost is not None
@@ -480,13 +529,35 @@ def show_consumption_cost_savings(start_date, end_date):
                             thermostat_daily_w_df['datetime'] = pd.to_datetime(thermostat_daily_w_df['date'])
                             
                             # Fogyasztás-költség korrelációs diagramok
-                            if loss_price_num is not None:
-                                # Napi költségek számítása
-                                smart_daily_energy_df['daily_cost_ft'] = smart_daily_energy_df['daily_energy_kwh'] * loss_price_num
-                                thermostat_daily_energy_df['daily_cost_ft'] = thermostat_daily_energy_df['daily_energy_kwh'] * loss_price_num
+                            if loss_price_2024 is not None and loss_price_2025 is not None:
+                                # Napi költségek számítása dátum alapján
+                                # Dátum alapján választjuk ki a megfelelő árat
+                                smart_daily_energy_df['year'] = pd.to_datetime(smart_daily_energy_df['date']).dt.year
+                                thermostat_daily_energy_df['year'] = pd.to_datetime(thermostat_daily_energy_df['date']).dt.year
                                 
-                                # Hagyományos fűtőtest konstans költsége
-                                heater_daily_cost_constant = heater_daily_energy * loss_price_num
+                                # Napi költségek számítása - dátum alapján
+                                smart_daily_energy_df['daily_cost_ft'] = smart_daily_energy_df.apply(
+                                    lambda row: row['daily_energy_kwh'] * (loss_price_2024 if row['year'] == 2024 else loss_price_2025),
+                                    axis=1
+                                )
+                                
+                                thermostat_daily_energy_df['daily_cost_ft'] = thermostat_daily_energy_df.apply(
+                                    lambda row: row['daily_energy_kwh'] * (loss_price_2024 if row['year'] == 2024 else loss_price_2025),
+                                    axis=1
+                                )
+                                
+                                # Hagyományos fűtőtest konstans költsége - átlagos árral
+                                # Számoljuk újra az átlagos árat
+                                days_2024_total = (smart_daily_energy_df['year'] == 2024).sum()
+                                days_2025_total = (smart_daily_energy_df['year'] == 2025).sum()
+                                total_days = len(smart_daily_energy_df)
+                                
+                                if total_days > 0:
+                                    avg_price_heater = (days_2024_total * loss_price_2024 + days_2025_total * loss_price_2025) / total_days
+                                else:
+                                    avg_price_heater = loss_price_2025
+                                
+                                heater_daily_cost_constant = heater_daily_energy * avg_price_heater
                                 
                                 # Fogyasztás-költség korrelációs diagramok
                                 st.write("### Fogyasztás-költség korreláció")

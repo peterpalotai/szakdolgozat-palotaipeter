@@ -12,7 +12,10 @@ import time
 def scrape_eon_prices():
     
     
-    xpath1 = "/html/body/eon-ui-page-wrapper/main/div/eon-ui-section/eon-ui-grid-control/eon-ui-grid-control-column/eon-ui-grid-control/eon-ui-grid-control-column[1]/div[4]/table/tbody/tr[19]/td[3]"
+    # 2024-es ár (tr[18]) - eggyel feljebb
+    xpath_2024 = "/html/body/eon-ui-page-wrapper/main/div/eon-ui-section/eon-ui-grid-control/eon-ui-grid-control-column/eon-ui-grid-control/eon-ui-grid-control-column[1]/div[4]/table/tbody/tr[18]/td[3]"
+    # 2025-ös ár (tr[19]) - jelenlegi
+    xpath_2025 = "/html/body/eon-ui-page-wrapper/main/div/eon-ui-section/eon-ui-grid-control/eon-ui-grid-control-column/eon-ui-grid-control/eon-ui-grid-control-column[1]/div[4]/table/tbody/tr[19]/td[3]"
     
     chrome_options = Options()
     chrome_options.add_argument('--headless')
@@ -35,12 +38,21 @@ def scrape_eon_prices():
         time.sleep(3)
         
        
-        value1 = driver.find_element(By.XPATH, xpath1).text
+        # 2024-es ár lekérése
+        value_2024 = driver.find_element(By.XPATH, xpath_2024).text
+        # 2025-ös ár lekérése
+        value_2025 = driver.find_element(By.XPATH, xpath_2025).text
         
-       
-        print(f"Debug - Veszteségi ár: {value1}")
+        print(f"Debug - 2024-es veszteségi ár: {value_2024}")
+        print(f"Debug - 2025-ös veszteségi ár: {value_2025}")
         
-        return value1, None
+        # Dictionary formátumban visszaadjuk mindkét árat
+        prices = {
+            '2024': value_2024,
+            '2025': value_2025
+        }
+        
+        return prices, None
         
     except Exception as e:
         return None, str(e)

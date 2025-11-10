@@ -20,7 +20,7 @@ def show_savings_page():
     st.write("# Megtakarítások")
     
     # E.ON árak státusz megjelenítése
-    if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
+    if 'loss_prices' in st.session_state and st.session_state.loss_prices is not None:
         st.success("✅ Árak elérhetők")
     elif 'eon_error' in st.session_state and st.session_state.eon_error:
         st.error(f"❌ E.ON árak lekérése sikertelen: {st.session_state.eon_error}")
