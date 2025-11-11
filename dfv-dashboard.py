@@ -54,7 +54,7 @@ if 'loss_prices' not in st.session_state:
     else:
         st.session_state.loss_prices = loss_prices  # Dictionary: {'2024': '95,59 Ft/kWh', '2025': '51,37 Ft/kWh'}
         st.session_state.eon_error = None
-        # Visszafelé kompatibilitás: az első árat (2025-ös) használjuk alapértelmezettként
+        
         if loss_prices and '2025' in loss_prices:
             st.session_state.loss_price = loss_prices['2025']
 

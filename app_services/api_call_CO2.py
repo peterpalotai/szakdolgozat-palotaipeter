@@ -26,7 +26,8 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
     
     # Dátumok számítása - először lekérdezzük az utolsó adatbázis napját
     try:
-        last_date_query = f"SELECT MAX(date) as last_date FROM {table_name}"
+        from page_modules.database_queries import get_last_date_from_table
+        last_date_query = get_last_date_from_table(table_name)
         last_date_result = execute_query(last_date_query)
         if last_date_result and len(last_date_result) > 0 and last_date_result[0][0]:
             end_date = datetime.combine(last_date_result[0][0], datetime.max.time())
@@ -69,20 +70,13 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
                 
                 
                 try:
-                    # Oszlopnevek meghatározása a táblanév alapján
-                    if table_name == "dfv_termosztat_db":
-                        power_column = "trend_termosztat_p"
-                    else:  # dfv_smart_db
-                        power_column = "trend_smart_p"
-                    
-                   
-                    power_query = f"""
-                    SELECT date, time, {power_column} as power_W
-                    FROM {table_name}
-                    WHERE date >= '{start_date.date()}' AND date <= '{end_date.date()}'
-                    AND {power_column} IS NOT NULL
-                    ORDER BY date, time
-                    """
+                    # Teljesítmény adatok lekérdezése
+                    from page_modules.database_queries import get_power_data_for_co2
+                    power_query = get_power_data_for_co2(
+                        table_name, 
+                        str(start_date.date()), 
+                        str(end_date.date())
+                    )
                     power_data = execute_query(power_query)
                     
                     if power_data:

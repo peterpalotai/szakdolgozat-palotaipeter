@@ -159,7 +159,13 @@ def show_home_page():
         else:
             columns = "*"  # Ha más tábla, akkor minden oszlop
         
-        query = f"SELECT {columns} FROM {selected_table} LIMIT {current_page_size} OFFSET {st.session_state[f'offset_{selected_table}']}"
+        from page_modules.database_queries import get_table_data_paginated
+        query = get_table_data_paginated(
+            selected_table, 
+            columns, 
+            current_page_size, 
+            st.session_state[f'offset_{selected_table}']
+        )
         result = execute_query(query)
         
         if result:
@@ -225,7 +231,8 @@ def show_home_page():
                 
                 
                 try:
-                    count_query = f"SELECT COUNT(*) FROM {selected_table}"
+                    from page_modules.database_queries import get_table_count
+                    count_query = get_table_count(selected_table)
                     total_count = execute_query(count_query)[0][0]
                     
                   
@@ -246,7 +253,8 @@ def show_home_page():
                 current_offset = st.session_state[f"offset_{selected_table}"]
                 
                 try:
-                    count_query = f"SELECT COUNT(*) FROM {selected_table}"
+                    from page_modules.database_queries import get_table_count
+                    count_query = get_table_count(selected_table)
                     total_count = execute_query(count_query)[0][0]
                     
                     # Utolsó oldal offset
@@ -275,7 +283,8 @@ def show_home_page():
             
                 # Összes oldal számának kiszámítása
                 try:
-                    count_query = f"SELECT COUNT(*) FROM {selected_table}"
+                    from page_modules.database_queries import get_table_count
+                    count_query = get_table_count(selected_table)
                     total_count = execute_query(count_query)[0][0]
                     total_pages = (total_count + current_page_size - 1) // current_page_size 
                     st.write(f" **Oldal:** {current_page} / {total_pages}")
@@ -460,13 +469,13 @@ def show_home_page():
                             chart_columns = "*"  # Ha más tábla, akkor minden oszlop
                         
                         # Adatok lekérdezése az időintervallum alapján
-                        # PostgreSQL: dátum-idő kombinációt használunk
-                        query = f"""
-                        SELECT {chart_columns} FROM {selected_table} 
-                        WHERE (date::text || ' ' || time::text)::timestamp <= '{end_time.strftime('%Y-%m-%d %H:%M:%S')}'::timestamp
-                        AND (date::text || ' ' || time::text)::timestamp >= '{start_time.strftime('%Y-%m-%d %H:%M:%S')}'::timestamp
-                        ORDER BY date, time
-                        """
+                        from page_modules.database_queries import get_chart_data_by_time_range
+                        query = get_chart_data_by_time_range(
+                            selected_table,
+                            chart_columns,
+                            start_time.strftime('%Y-%m-%d %H:%M:%S'),
+                            end_time.strftime('%Y-%m-%d %H:%M:%S')
+                        )
                         
                         chart_data = execute_query(query)
                     

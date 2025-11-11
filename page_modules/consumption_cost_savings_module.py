@@ -9,6 +9,7 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app_services.eon_scraper import calculate_energy_costs
 from app_services.database import execute_query
+from page_modules.database_queries import get_smart_controller_data, get_thermostat_controller_data
 
 def show_consumption_cost_savings(start_date, end_date):
     """Fogyasztási és költség megtakarítások számítása és megjelenítése"""
@@ -23,40 +24,10 @@ def show_consumption_cost_savings(start_date, end_date):
             with st.spinner("Összehasonlítás számítása..."):
                 try:
                     # Okosvezérlő adatainak lekérése
-                    smart_query = f"""
-                    SELECT date, time, 
-                           trend_smart_p as value,
-                           trend_smart_i1 as current,
-                           trend_smart_t as internal_temp,
-                           trend_kulso_homerseklet_pillanatnyi as external_temp,
-                           trend_smart_rh as internal_humidity,
-                           trend_kulso_paratartalom as external_humidity
-                    FROM dfv_smart_db
-                    WHERE DATE(date) BETWEEN '{start_date}' AND '{end_date}'
-                    AND trend_smart_p IS NOT NULL 
-                    AND trend_smart_i1 IS NOT NULL
-                    AND trend_smart_t IS NOT NULL
-                    AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
-                    ORDER BY date, time
-                    """
+                    smart_query = get_smart_controller_data(start_date, end_date)
                     
                     # Termosztátos vezérlő adatainak lekérése
-                    thermostat_query = f"""
-                    SELECT date, time, 
-                           trend_termosztat_p as value,
-                           trend_termosztat_i1 as current,
-                           trend_termosztat_t as internal_temp,
-                           trend_kulso_homerseklet_pillanatnyi as external_temp,
-                           trend_termosztat_rh as internal_humidity,
-                           trend_kulso_paratartalom as external_humidity
-                    FROM dfv_termosztat_db
-                    WHERE DATE(date) BETWEEN '{start_date}' AND '{end_date}'
-                    AND trend_termosztat_p IS NOT NULL 
-                    AND trend_termosztat_i1 IS NOT NULL
-                    AND trend_termosztat_t IS NOT NULL
-                    AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
-                    ORDER BY date, time
-                    """
+                    thermostat_query = get_thermostat_controller_data(start_date, end_date)
                     
                     smart_data = execute_query(smart_query)
                     thermostat_data = execute_query(thermostat_query)
@@ -137,7 +108,6 @@ def show_consumption_cost_savings(start_date, end_date):
                         thermostat_operating_hours = thermostat_daily_operating_intervals * time_interval_hours
                         
                         # Átlagos napi fogyasztás W-ban számítása
-                        # Teljesítmény (W) = (Energia (kWh) / Működési óra) * 1000
                         if smart_operating_hours > 0:
                             smart_avg = (smart_daily_energy / smart_operating_hours) * 1000  # W-ba konvertálva
                         else:
@@ -496,7 +466,7 @@ def show_consumption_cost_savings(start_date, end_date):
                         if len(smart_daily) > 0 and len(thermostat_daily) > 0:
                             time_interval_hours = 0.25  # 15 perc = 0.25 óra
                             
-                            # Napi bontásban számoljuk a működési órákat és teljesítményt
+                            
                             smart_daily_operating_hours = smart_df.groupby('date').apply(
                                 lambda x: (x['value'] > 0).sum() * time_interval_hours
                             )
