@@ -38,7 +38,7 @@ def show_home_page():
     # Session state inicializálása
     if "selected_table" not in st.session_state:
         st.session_state.selected_table = "dfv_smart_db"
-        st.session_state.table_display_name = "Okosvezérlő"
+        st.session_state.table_display_name = "Dinamikus fűtésvezérlő"
         st.session_state.prev_selected_table = None
     
     selected_table = st.session_state.selected_table

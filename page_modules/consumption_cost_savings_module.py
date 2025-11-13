@@ -19,11 +19,11 @@ def show_consumption_cost_savings(start_date, end_date):
         heater_power = st.session_state.get('heater_power', None)
         
         if heater_power is None or heater_power <= 0:
-            st.warning("⚠️ Kérjük, adjon meg egy érvényes hagyományos fűtőtest teljesítményt a navigációs sávban!")
+            st.warning("⚠️ Kérjük, adjon meg egy érvényes beépített fűtőtest teljesítményt a navigációs sávban!")
         else:
             with st.spinner("Összehasonlítás számítása..."):
                 try:
-                    # Okosvezérlő adatainak lekérése
+                    # Dinamikus fűtésvezérlő adatainak lekérése
                     smart_query = get_smart_controller_data(start_date, end_date)
                     
                     # Termosztátos vezérlő adatainak lekérése
@@ -118,10 +118,10 @@ def show_consumption_cost_savings(start_date, end_date):
                         else:
                             thermostat_avg = 0
                         
-                        # Hagyományos fűtőtest: egyszerű számítás
+                        # Beépített fűtőtest: egyszerű számítás
                         heater_usage_hours = 24  # óra
                         heater_daily_energy = (heater_power * heater_usage_hours) / 1000.0  # kWh
-                        # Hagyományos fűtőtest konstans teljesítménye (W)
+                        # Beépített fűtőtest konstans teljesítménye (W)
                         heater_avg = heater_power
                         
                         # Veszteségi energiaár költségek számítása dátum alapján
@@ -157,7 +157,7 @@ def show_consumption_cost_savings(start_date, end_date):
                             smart_loss_cost = smart_daily_energy * avg_price_smart  # Ft/nap
                             thermostat_loss_cost = thermostat_daily_energy * avg_price_thermo  # Ft/nap
                             
-                            # Hagyományos fűtőtest költsége - dátum alapján súlyozott átlag
+                            # Beépített fűtőtest költsége - dátum alapján súlyozott átlag
                             # Feltételezzük, hogy ugyanaz az időszak
                             if total_days_smart > 0:
                                 avg_price_heater = (days_2024_smart * loss_price_2024 + days_2025_smart * loss_price_2025) / total_days_smart
@@ -167,7 +167,7 @@ def show_consumption_cost_savings(start_date, end_date):
                             heater_loss_cost = heater_daily_energy * avg_price_heater  # Ft/nap
                             
                             # Megtakarítás számítása veszteségi energiaár alapján
-                            # Megtakarítás = (Hagyományos napi energia - Okosvezérlő napi energia) × Veszteségi ár
+                            # Megtakarítás = (Beépített napi energia - Dinamikus fűtésvezérlő napi energia) × Veszteségi ár
                             smart_savings_energy = heater_daily_energy - smart_daily_energy  # kWh/nap
                             thermostat_savings_energy = heater_daily_energy - thermostat_daily_energy  # kWh/nap
                             
@@ -188,14 +188,14 @@ def show_consumption_cost_savings(start_date, end_date):
                         if (smart_loss_cost is not None and thermostat_loss_cost is not None and heater_loss_cost is not None 
                             and smart_savings_cost is not None and thermostat_savings_cost is not None
                             and smart_savings_energy is not None and thermostat_savings_energy is not None):
-                            # Számított értékek - Okosvezérlő vs Hagyományos fűtőtest
+                            # Számított értékek - Dinamikus fűtésvezérlő vs Beépített fűtőtest
                             consumption_diff_smart_heater = smart_avg - heater_avg
                             # Megtakarítás pozitív értékben (ha negatív, akkor nincs megtakarítás)
                             cost_diff_smart_heater = -smart_savings_cost  # Negatív, mert megtakarítás
                             monthly_savings_smart = smart_savings_cost * 30
                             yearly_savings_smart = smart_savings_cost * 365
                             
-                            # Számított értékek - Termosztátos vezérlő vs Hagyományos fűtőtest
+                            # Számított értékek - Termosztátos vezérlő vs Beépített fűtőtest
                             consumption_diff_thermo_heater = thermostat_avg - heater_avg
                             # Megtakarítás pozitív értékben (ha negatív, akkor nincs megtakarítás)
                             cost_diff_thermo_heater = -thermostat_savings_cost  # Negatív, mert megtakarítás
@@ -212,7 +212,7 @@ def show_consumption_cost_savings(start_date, end_date):
                             
                             # Fogyasztás összehasonlítás táblázat
                             consumption_data = {
-                                'Vezérlő típus': ['Okosvezérlő', 'Termosztátos vezérlő', 'Hagyományos fűtőtest'],
+                                'Vezérlő típus': ['Dinamikus fűtésvezérlő', 'Termosztátos vezérlő', 'Beépített fűtőtest'],
                                 'Átlagos napi fogyasztás (W)': [
                                     f"{smart_avg:.2f}",
                                     f"{thermostat_avg:.2f}",
@@ -235,7 +235,7 @@ def show_consumption_cost_savings(start_date, end_date):
                             st.write("### 💰 Költség összehasonlítás")
                             
                             cost_data = {
-                                'Vezérlő típus': ['Okosvezérlő', 'Termosztátos vezérlő', 'Hagyományos fűtőtest'],
+                                'Vezérlő típus': ['Dinamikus fűtésvezérlő', 'Termosztátos vezérlő', 'Beépített fűtőtest'],
                                 'Veszteségi ár költség (Ft/nap)': [
                                     f"{smart_loss_cost:.2f}",
                                     f"{thermostat_loss_cost:.2f}", 
@@ -257,9 +257,9 @@ def show_consumption_cost_savings(start_date, end_date):
                             # Veszteségi energiaár megtakarítás táblázat
                             st.write("### 💰 Veszteségi energiaár megtakarítás")
                             
-                            # Okosvezérlő megtakarítás
+                            # Dinamikus fűtésvezérlő megtakarítás
                             if smart_savings_cost > 0:
-                                st.write("#### Okosvezérlő vs Hagyományos fűtőtest")
+                                st.write("#### Dinamikus fűtésvezérlő vs Beépített fűtőtest")
                                 savings_data_smart = {
                                     'Időszak': ['Napi', 'Havi', 'Éves'],
                                     'Energia megtakarítás (kWh)': [
@@ -289,7 +289,7 @@ def show_consumption_cost_savings(start_date, end_date):
                             
                             # Termosztátos vezérlő megtakarítás
                             if thermostat_savings_cost > 0:
-                                st.write("#### Termosztátos vezérlő vs Hagyományos fűtőtest")
+                                st.write("#### Termosztátos vezérlő vs Beépített fűtőtest")
                                 savings_data_thermo = {
                                     'Időszak': ['Napi', 'Havi', 'Éves'],
                                     'Energia megtakarítás (kWh)': [
@@ -320,7 +320,7 @@ def show_consumption_cost_savings(start_date, end_date):
                             # Fogyasztási megtakarítás számítás
                             st.write("### 💡 Fogyasztási megtakarítás")
                             
-                            # Okosvezérlő vs Hagyományos fűtőtest
+                            # Dinamikus fűtésvezérlő vs Beépített fűtőtest
                             if consumption_diff_smart_heater < 0:
                                 savings_w = abs(consumption_diff_smart_heater)
                                 # Napi átlagos fogyasztás különbség W-ban
@@ -330,7 +330,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                 # Éves átlagos fogyasztás különbség W-ban (napi átlag * 365)
                                 savings_w_year = savings_w * 365
                                 
-                                st.write("#### Okosvezérlő vs Hagyományos fűtőtest")
+                                st.write("#### Dinamikus fűtésvezérlő vs Beépített fűtőtest")
                                 savings_data_smart_heater = {
                                     'Időszak': ['Napi', 'Havi', 'Éves'],
                                     'Megtakarítás (W)': [
@@ -350,7 +350,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                     }
                                 )
                             
-                            # Termosztátos vezérlő vs Hagyományos fűtőtest
+                            # Termosztátos vezérlő vs Beépített fűtőtest
                             if consumption_diff_thermo_heater < 0:
                                 savings_w = abs(consumption_diff_thermo_heater)
                                 # Napi átlagos fogyasztás különbség W-ban
@@ -360,7 +360,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                 # Éves átlagos fogyasztás különbség W-ban (napi átlag * 365)
                                 savings_w_year = savings_w * 365
                                 
-                                st.write("#### Termosztátos vezérlő vs Hagyományos fűtőtest")
+                                st.write("#### Termosztátos vezérlő vs Beépített fűtőtest")
                                 savings_data_thermo_heater = {
                                     'Időszak': ['Napi', 'Havi', 'Éves'],
                                     'Megtakarítás (W)': [
@@ -383,8 +383,8 @@ def show_consumption_cost_savings(start_date, end_date):
                             # Költség különbség táblázat
                             st.write("### 📈 Költség különbség")
                             
-                            # Okosvezérlő vs Hagyományos fűtőtest
-                            st.write("#### Okosvezérlő vs Hagyományos fűtőtest")
+                            # Dinamikus fűtésvezérlő vs Beépített fűtőtest
+                            st.write("#### Dinamikus fűtésvezérlő vs Beépített fűtőtest")
                             cost_diff_data_smart_heater = {
                                 'Időszak': ['Napi', 'Havi', 'Éves'],
                                 'Különbség (Ft)': [
@@ -405,8 +405,8 @@ def show_consumption_cost_savings(start_date, end_date):
                                 }
                             )
                             
-                            # Termosztátos vezérlő vs Hagyományos fűtőtest
-                            st.write("#### Termosztátos vezérlő vs Hagyományos fűtőtest")
+                            # Termosztátos vezérlő vs Beépített fűtőtest
+                            st.write("#### Termosztátos vezérlő vs Beépített fűtőtest")
                             cost_diff_data_thermo_heater = {
                                 'Időszak': ['Napi', 'Havi', 'Éves'],
                                 'Különbség (Ft)': [
@@ -432,8 +432,8 @@ def show_consumption_cost_savings(start_date, end_date):
                             
                             summary_data = {
                                 'Összehasonlítás': [
-                                    'Okosvezérlő vs Hagyományos fűtőtest',
-                                    'Termosztátos vezérlő vs Hagyományos fűtőtest'
+                                    'Dinamikus fűtésvezérlő vs Beépített fűtőtest',
+                                    'Termosztátos vezérlő vs Beépített fűtőtest'
                                 ],
                                 'Fogyasztás különbség (W)': [
                                     f"{consumption_diff_smart_heater:+.2f}",
@@ -516,7 +516,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                     axis=1
                                 )
                                 
-                                # Hagyományos fűtőtest konstans költsége - átlagos árral
+                                # Beépített fűtőtest konstans költsége - átlagos árral
                                 # Számoljuk újra az átlagos árat
                                 days_2024_total = (smart_daily_energy_df['year'] == 2024).sum()
                                 days_2025_total = (smart_daily_energy_df['year'] == 2025).sum()
@@ -533,7 +533,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                 st.write("### Fogyasztás-költség korreláció")
                                 
                                 # Fogyasztás W-ban és költség Ft-ban összekapcsolása
-                                # Okosvezérlő adatok - összekapcsoljuk a helyes teljesítmény értékeket a költségekkel
+                                # Dinamikus fűtésvezérlő adatok - összekapcsoljuk a helyes teljesítmény értékeket a költségekkel
                                 smart_consumption_cost_df = smart_daily_w_df.merge(
                                     smart_daily_energy_df[['date', 'daily_cost_ft']], 
                                     on='date', 
@@ -553,16 +553,16 @@ def show_consumption_cost_savings(start_date, end_date):
                                 col1, col2 = st.columns(2)
                                 
                                 with col1:
-                                    # 1. Okosvezérlő vs Hagyományos fűtőtest diagram
-                                    st.write("#### Okosvezérlő vs Hagyományos fűtőtest")
+                                    # 1. Dinamikus fűtésvezérlő vs Beépített fűtőtest diagram
+                                    st.write("#### Dinamikus fűtésvezérlő vs Beépített fűtőtest")
                                     fig_scatter_smart = go.Figure()
                                     
-                                    # Okosvezérlő pontok
+                                    # Dinamikus fűtésvezérlő pontok
                                     fig_scatter_smart.add_trace(go.Scatter(
                                         x=smart_consumption_cost_df['fogyasztas_w'],
                                         y=smart_consumption_cost_df['koltseg_ft'],
                                         mode='markers',
-                                        name='Okosvezérlő',
+                                        name='Dinamikus fűtésvezérlő',
                                         marker=dict(
                                             color='#00CC96',
                                             size=8,
@@ -576,23 +576,23 @@ def show_consumption_cost_savings(start_date, end_date):
                                         hoverinfo='text'
                                     ))
                                     
-                                    # Hagyományos fűtőtest referencia pont
+                                    # Beépített fűtőtest referencia pont
                                     fig_scatter_smart.add_trace(go.Scatter(
                                         x=[heater_avg],
                                         y=[heater_daily_cost_constant],
                                         mode='markers',
-                                        name='Hagyományos fűtőtest',
+                                        name='Beépített fűtőtest',
                                         marker=dict(
                                             color='gray',
                                             size=15,
                                             symbol='diamond',
                                             line=dict(width=2, color='black')
                                         ),
-                                        text=f"Hagyományos fűtőtest<br>Fogyasztás: {heater_avg:.2f} W<br>Költség: {heater_daily_cost_constant:.2f} Ft",
+                                        text=f"Beépített fűtőtest<br>Fogyasztás: {heater_avg:.2f} W<br>Költség: {heater_daily_cost_constant:.2f} Ft",
                                         hoverinfo='text'
                                     ))
                                     
-                                    # Okosvezérlő trendvonal
+                                    # Dinamikus fűtésvezérlő trendvonal
                                     if len(smart_consumption_cost_df) > 1:
                                         z_smart = np.polyfit(smart_consumption_cost_df['fogyasztas_w'], 
                                                             smart_consumption_cost_df['koltseg_ft'], 1)
@@ -603,7 +603,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                             x=x_trend_smart,
                                             y=p_smart(x_trend_smart),
                                             mode='lines',
-                                            name='Okosvezérlő trendvonal',
+                                            name='Dinamikus fűtésvezérlő trendvonal',
                                             line=dict(color='white', width=4, dash='dot'),
                                             showlegend=True
                                         ))
@@ -614,7 +614,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                         hovermode='closest',
                                         template="plotly_white",
                                         height=500,
-                                        title="Okosvezérlő vs Hagyományos fűtőtest",
+                                        title="Dinamikus fűtésvezérlő vs Beépített fűtőtest",
                                         legend=dict(
                                             yanchor="top",
                                             y=0.99,
@@ -626,8 +626,8 @@ def show_consumption_cost_savings(start_date, end_date):
                                     st.plotly_chart(fig_scatter_smart, use_container_width=True)
                                 
                                 with col2:
-                                    # 2. Termosztátos vezérlő vs Hagyományos fűtőtest diagram
-                                    st.write("#### Termosztátos vezérlő vs Hagyományos fűtőtest")
+                                    # 2. Termosztátos vezérlő vs Beépített fűtőtest diagram
+                                    st.write("#### Termosztátos vezérlő vs Beépített fűtőtest")
                                     fig_scatter_thermo = go.Figure()
                                     
                                     # Termosztátos vezérlő pontok
@@ -649,19 +649,19 @@ def show_consumption_cost_savings(start_date, end_date):
                                         hoverinfo='text'
                                     ))
                                     
-                                    # Hagyományos fűtőtest referencia pont
+                                    # Beépített fűtőtest referencia pont
                                     fig_scatter_thermo.add_trace(go.Scatter(
                                         x=[heater_avg],
                                         y=[heater_daily_cost_constant],
                                         mode='markers',
-                                        name='Hagyományos fűtőtest',
+                                        name='Beépített fűtőtest',
                                         marker=dict(
                                             color='gray',
                                             size=15,
                                             symbol='diamond',
                                             line=dict(width=2, color='black')
                                         ),
-                                        text=f"Hagyományos fűtőtest<br>Fogyasztás: {heater_avg:.2f} W<br>Költség: {heater_daily_cost_constant:.2f} Ft",
+                                        text=f"Beépített fűtőtest<br>Fogyasztás: {heater_avg:.2f} W<br>Költség: {heater_daily_cost_constant:.2f} Ft",
                                         hoverinfo='text'
                                     ))
                                     
@@ -687,7 +687,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                         hovermode='closest',
                                 template="plotly_white",
                                 height=500,
-                                        title="Termosztátos vezérlő vs Hagyományos fűtőtest",
+                                        title="Termosztátos vezérlő vs Beépített fűtőtest",
                                         legend=dict(
                                             yanchor="top",
                                             y=0.99,

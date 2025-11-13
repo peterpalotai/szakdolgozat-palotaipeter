@@ -12,14 +12,14 @@ def show_co2_savings():
     st.write("## CO2 megtakarítás számítása")
     
     # Tábla kiválasztása CO2 számításhoz
+    table_options = {
+        "dfv_smart_db": "Dinamikus fűtésvezérlő",
+        "dfv_termosztat_db": "Termosztátos vezérlő"
+    }
+    
     col1, col2 = st.columns(2)
     
     with col1:
-        table_options = {
-            "dfv_smart_db": "Oksovezérlő",
-            "dfv_termosztat_db": "Termosztátos vezérlő"
-        }
-        
         selected_table = st.selectbox(
             "Válassz táblát:",
             options=list(table_options.keys()),
@@ -29,6 +29,9 @@ def show_co2_savings():
     
     with col2:
         st.write("")
+    
+    # Dinamikus név a kiválasztott táblához
+    selected_table_display_name = table_options[selected_table]
     
     heater_power = st.session_state.get('heater_power', None)
     
@@ -112,7 +115,7 @@ def show_co2_savings():
             heater_daily_co2 = co2_hourly_df_copy.groupby('Dátum').agg({
                 'Izzó_CO2_g': 'sum'
             }).reset_index()
-            heater_daily_co2.columns = ['Dátum', 'Hagyományos fűtőtest napi CO2 (g)']
+            heater_daily_co2.columns = ['Dátum', 'Beépített fűtőtest napi CO2 (g)']
             
             # Összehasonlítás az adatbázisból lekért adatokkal
             if 'co2_daily_dataframe' in st.session_state and st.session_state['co2_daily_dataframe'] is not None:
@@ -126,34 +129,38 @@ def show_co2_savings():
                     how='inner'
                 )
                 
-                # Megtakarítás számítása (Hagyományos fűtőtest CO2 - Adatbázis CO2)
-                comparison_df['CO2 megtakarítás (g)'] = comparison_df['Hagyományos fűtőtest napi CO2 (g)'] - comparison_df['Napi CO2 (g)']
-                comparison_df['Megtakarítás százalék'] = (comparison_df['CO2 megtakarítás (g)'] / comparison_df['Hagyományos fűtőtest napi CO2 (g)']) * 100
+                # Megtakarítás számítása (Beépített fűtőtest CO2 - Adatbázis CO2)
+                comparison_df['CO2 megtakarítás (g)'] = comparison_df['Beépített fűtőtest napi CO2 (g)'] - comparison_df['Napi CO2 (g)']
+                comparison_df['Megtakarítás százalék'] = (comparison_df['CO2 megtakarítás (g)'] / comparison_df['Beépített fűtőtest napi CO2 (g)']) * 100
                 
                 # Összesített eredmények
                 st.write("### Összesített eredmények")
                 
-                total_database_co2 = comparison_df['Napi CO2 (g)'].sum()
-                total_heater_co2 = comparison_df['Hagyományos fűtőtest napi CO2 (g)'].sum()
-                total_savings = comparison_df['CO2 megtakarítás (g)'].sum()
+                total_database_co2 = comparison_df['Napi CO2 (g)'].sum() / 1000.0  # kg-ba konvertálás
+                total_heater_co2 = comparison_df['Beépített fűtőtest napi CO2 (g)'].sum() / 1000.0  # kg-ba konvertálás
+                total_savings = comparison_df['CO2 megtakarítás (g)'].sum() / 1000.0  # kg-ba konvertálás
                 avg_savings_percent = comparison_df['Megtakarítás százalék'].mean()
                 
                 col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
-                    st.metric("Adatbázis összes CO2", f"{total_database_co2:.2f} g")
+                    st.metric(f"{selected_table_display_name} összes CO2 kibocsátás", f"{total_database_co2:.2f} kg")
                 with col2:
-                    st.metric("Hagyományos fűtőtest összes CO2", f"{total_heater_co2:.2f} g")
+                    st.metric("Beépített fűtőtest összes CO2 kibocsátás", f"{total_heater_co2:.2f} kg")
                 with col3:
-                    st.metric("Összes megtakarítás", f"{total_savings:.2f} g", 
+                    st.metric("Összes megtakarítás", f"{total_savings:.2f} kg", 
                              delta=f"{avg_savings_percent:.2f}%")
                 with col4:
-                    st.metric("Átlagos napi megtakarítás", f"{total_savings / len(comparison_df):.2f} g")
+                    st.metric("Átlagos napi megtakarítás", f"{total_savings / len(comparison_df):.2f} kg")
                 
                 # Részletes napi összehasonlítás táblázat
                 st.write("### Részletes napi összehasonlítás")
-                display_comparison = comparison_df[['Dátum', 'Napi CO2 (g)', 'Hagyományos fűtőtest napi CO2 (g)', 'CO2 megtakarítás (g)', 'Megtakarítás százalék']].copy()
-                display_comparison.columns = ['Dátum', 'Adatbázis CO2 (g)', 'Hagyományos fűtőtest CO2 (g)', 'Megtakarítás (g)', 'Megtakarítás (%)']
+                display_comparison = comparison_df[['Dátum', 'Napi CO2 (g)', 'Beépített fűtőtest napi CO2 (g)', 'CO2 megtakarítás (g)', 'Megtakarítás százalék']].copy()
+                # kg-ba konvertálás
+                display_comparison['Napi CO2 (g)'] = display_comparison['Napi CO2 (g)'] / 1000.0
+                display_comparison['Beépített fűtőtest napi CO2 (g)'] = display_comparison['Beépített fűtőtest napi CO2 (g)'] / 1000.0
+                display_comparison['CO2 megtakarítás (g)'] = display_comparison['CO2 megtakarítás (g)'] / 1000.0
+                display_comparison.columns = ['Dátum', f'{selected_table_display_name} CO2 kibocsátás (kg)', 'Beépített fűtőtest CO2 kibocsátás (kg)', 'Megtakarítás (kg)', 'Megtakarítás (%)']
                 display_comparison = display_comparison.round(2)
                 st.dataframe(display_comparison, use_container_width=True)
                 
@@ -161,28 +168,33 @@ def show_co2_savings():
                 st.write("### Vizuális összehasonlítás")
                 fig_comparison = go.Figure()
                 
+                # kg-ba konvertálás a diagramhoz
+                comparison_df_kg = comparison_df.copy()
+                comparison_df_kg['Napi CO2 (g)'] = comparison_df_kg['Napi CO2 (g)'] / 1000.0
+                comparison_df_kg['Beépített fűtőtest napi CO2 (g)'] = comparison_df_kg['Beépített fűtőtest napi CO2 (g)'] / 1000.0
+                
                 fig_comparison.add_trace(go.Scatter(
-                    x=comparison_df['Dátum'],
-                    y=comparison_df['Napi CO2 (g)'],
+                    x=comparison_df_kg['Dátum'],
+                    y=comparison_df_kg['Napi CO2 (g)'],
                     mode='lines+markers',
-                    name='Adatbázis CO2',
+                    name=f'{selected_table_display_name} CO2 kibocsátás',
                     line=dict(color='blue', width=2),
                     marker=dict(size=6)
                 ))
                 
                 fig_comparison.add_trace(go.Scatter(
-                    x=comparison_df['Dátum'],
-                    y=comparison_df['Hagyományos fűtőtest napi CO2 (g)'],
+                    x=comparison_df_kg['Dátum'],
+                    y=comparison_df_kg['Beépített fűtőtest napi CO2 (g)'],
                     mode='lines+markers',
-                    name='Hagyományos fűtőtest CO2',
+                    name='Beépített fűtőtest CO2 kibocsátás',
                     line=dict(color='red', width=2, dash='dash'),
                     marker=dict(size=6)
                 ))
                 
                 fig_comparison.update_layout(
-                    title="CO2 Kibocsátás összehasonlítás: Adatbázis vs Hagyományos fűtőtest",
+                    title=f"CO2 Kibocsátás összehasonlítás: {selected_table_display_name} vs Beépített fűtőtest",
                     xaxis_title="Dátum",
-                    yaxis_title="CO2 Kibocsátás (g)",
+                    yaxis_title="CO2 Kibocsátás (kg)",
                     hovermode='x unified',
                     template="plotly_white",
                     height=500
@@ -193,9 +205,12 @@ def show_co2_savings():
                 # Megtakarítás grafikon
                 fig_savings = go.Figure()
                 
+                # kg-ba konvertálás
+                comparison_df_kg['CO2 megtakarítás (g)'] = comparison_df_kg['CO2 megtakarítás (g)'] / 1000.0
+                
                 fig_savings.add_trace(go.Bar(
-                    x=comparison_df['Dátum'],
-                    y=comparison_df['CO2 megtakarítás (g)'],
+                    x=comparison_df_kg['Dátum'],
+                    y=comparison_df_kg['CO2 megtakarítás (g)'],
                     name='CO2 megtakarítás',
                     marker=dict(color='green')
                 ))
@@ -203,7 +218,7 @@ def show_co2_savings():
                 fig_savings.update_layout(
                     title="Napi CO2 megtakarítás",
                     xaxis_title="Dátum",
-                    yaxis_title="CO2 megtakarítás (g)",
+                    yaxis_title="CO2 megtakarítás (kg)",
                     template="plotly_white",
                     height=400
                 )

@@ -32,7 +32,7 @@ if st.session_state.page != "Főoldal":
         st.session_state.heater_power = 60.0  
 
     heater_power = st.sidebar.number_input(
-        "Hagyományos fűtőtest teljesítménye (W):",
+        "Beépített fűtőteljesítmény (W):",
         min_value=30.0,
         max_value=120.0,
         value=st.session_state.heater_power,

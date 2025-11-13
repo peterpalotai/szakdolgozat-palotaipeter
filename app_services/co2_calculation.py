@@ -157,18 +157,23 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
             power_co2_pairs.columns = ['Teljesítmény (W)', 'CO2 (g)']
             
             # Napi adatok kiszámítása
+            # Első és utolsó mérés ideje, átlagos teljesítmény, mérések száma
             daily_stats = power_with_co2.groupby('Dátum').agg({
-                'Teljesítmény (W)': 'mean',
-                'Energia (kWh)': 'sum',
-                'CO2 (g)': 'sum',
+                'Teljesítmény (W)': ['mean', 'count'],
                 'Dátum_Idő': ['min', 'max']  # Első és utolsó mérés ideje
             }).reset_index()
             
             # Oszlopnevek javítása
-            daily_stats.columns = ['Dátum', 'Napi átlagos teljesítmény (W)', 'Napi energia (kWh)', 'Napi CO2 (g)', 'Első_mérés', 'Utolsó_mérés']
+            daily_stats.columns = ['Dátum', 'Napi átlagos teljesítmény (W)', 'Mérések_száma', 'Első_mérés', 'Utolsó_mérés']
             
             # Működési órák számítása (első és utolsó mérés közötti idő)
             daily_stats['Működési_óra'] = (daily_stats['Utolsó_mérés'] - daily_stats['Első_mérés']).dt.total_seconds() / 3600.0
+            
+            # Fogyasztás számítása: átlagos teljesítmény × működési órák / 1000
+            daily_stats['Napi energia (kWh)'] = (daily_stats['Napi átlagos teljesítmény (W)'] * daily_stats['Működési_óra']) / 1000.0
+            
+            # CO2 kibocsátás számítása: fogyasztás × CO2 intenzitás
+            daily_stats['Napi CO2 (g)'] = daily_stats['Napi energia (kWh)'] * co2_intensity
             
             # Felesleges oszlopok eltávolítása
             daily_stats = daily_stats.drop(columns=['Első_mérés', 'Utolsó_mérés'])

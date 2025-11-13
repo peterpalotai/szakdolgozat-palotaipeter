@@ -71,7 +71,7 @@ def show_energy_prediction_page():
     
     with col1:
         table_options = {
-            "dfv_smart_db": "Oksovezérlő",
+            "dfv_smart_db": "Dinamikus fűtésvezérlő",
             "dfv_termosztat_db": "Termosztátos vezérlő"
         }
         
