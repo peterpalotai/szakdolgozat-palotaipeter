@@ -393,9 +393,6 @@ def show_co2_savings():
                     y=heatmap_data.index,
                     colorscale='Greens',
                     colorbar=dict(title="CO2 megtakarítás (kg)"),
-                    text=heatmap_data.values.round(2),
-                    texttemplate='%{text}',
-                    textfont={"size": 10},
                     hovertemplate='Nap: %{y}<br>Hónap: %{x}<br>Megtakarítás: %{z:.2f} kg<extra></extra>'
                 ))
                 
