@@ -53,11 +53,13 @@ def show_co2_savings():
             st.session_state.co2_cached_days = 10
         if 'co2_cached_heater_power' not in st.session_state:
             st.session_state.co2_cached_heater_power = None
+        if 'co2_cached_table' not in st.session_state:
+            st.session_state.co2_cached_table = None
         
-        # Ha változott a fűtőteljesítmény, töröljük a cache-t
+        # Ha változott a fűtőteljesítmény vagy a tábla, töröljük a cache-t
         current_heater_power = st.session_state.get('heater_power', None)
-        if st.session_state.co2_cached_heater_power != current_heater_power:
-            # Töröljük a CO2 cache-t, ha változott a fűtőteljesítmény
+        if (st.session_state.co2_cached_heater_power != current_heater_power) or (st.session_state.co2_cached_table != selected_table):
+            # Töröljük a CO2 cache-t, ha változott a fűtőteljesítmény vagy a tábla
             if 'co2_hourly_dataframe' in st.session_state:
                 del st.session_state['co2_hourly_dataframe']
             if 'co2_hourly_with_power' in st.session_state:
@@ -71,6 +73,7 @@ def show_co2_savings():
             if 'power_co2_pairs' in st.session_state:
                 del st.session_state['power_co2_pairs']
             st.session_state.co2_cached_heater_power = current_heater_power
+            st.session_state.co2_cached_table = selected_table
         
         # Mindkét tábla adatainak lekérése a diagramhoz
         auto_refresh = ('co2_daily_dataframe_smart' not in st.session_state) or ('co2_daily_dataframe_thermo' not in st.session_state)
@@ -93,7 +96,8 @@ def show_co2_savings():
                         st.session_state['co2_daily_dataframe_thermo'] = daily_co2_df_thermo
         
         # Kiválasztott tábla adatainak lekérése a táblázathoz és metrikákhoz
-        auto_refresh_selected = ('co2_hourly_dataframe' not in st.session_state) or ('co2_daily_dataframe' not in st.session_state)
+        # Frissítjük, ha nincs cache-ben, vagy ha változott a tábla
+        auto_refresh_selected = ('co2_hourly_dataframe' not in st.session_state) or ('co2_daily_dataframe' not in st.session_state) or (st.session_state.co2_cached_table != selected_table)
         
         if auto_refresh_selected and api_key:
             with st.spinner("CO2 adatok lekérése folyamatban..."):
@@ -109,6 +113,7 @@ def show_co2_savings():
                         # Adatok cache-elése
                         st.session_state['co2_hourly_dataframe'] = co2_hourly_df
                         st.session_state['co2_cached_days'] = days_to_show
+                        st.session_state['co2_cached_table'] = selected_table
                         
                         if co2_hourly_with_power is not None and daily_co2_df is not None:
                             st.session_state['co2_hourly_with_power'] = co2_hourly_with_power
