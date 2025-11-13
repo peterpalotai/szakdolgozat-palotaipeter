@@ -5,7 +5,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app_services.api_call_CO2 import fetch_co2_emission_data
+from app_services.co2_calculation import fetch_co2_emission_data
 
 def show_co2_savings():
     """CO2 megtakarítások számítása és megjelenítése"""

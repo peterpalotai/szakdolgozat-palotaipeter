@@ -9,7 +9,7 @@ import sys
 
 # Hozzáadja a szülő könyvtárat a path-hoz
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from app_services.api_call_CO2 import fetch_co2_emission_data
+from app_services.co2_calculation import fetch_co2_emission_data
 
 def show_home_page():
     with open('styles.css', 'r', encoding='utf-8') as f:
@@ -598,13 +598,6 @@ def show_home_page():
     # CO2 kibocsátási adatok lekérdezése
     days_to_show = 10
     
-    # API kulcs betöltése a Streamlit secrets-ből
-    try:
-        api_key = st.secrets["api"]["electricity_maps_token"]
-    except (KeyError, FileNotFoundError) as e:
-        st.error(f"Hiányzik a .streamlit/secrets.toml fájl vagy az API kulcs. Hiba: {e}")
-        api_key = None
-    
     # Session state inicializálása
     if 'co2_cached_days' not in st.session_state:
         st.session_state.co2_cached_days = 10
@@ -629,11 +622,11 @@ def show_home_page():
     
     auto_refresh = ('co2_hourly_dataframe' not in st.session_state) or (st.session_state.co2_cached_table != selected_table)
     
-    if auto_refresh and api_key:
+    if auto_refresh:
         with st.spinner("Adatok lekérése folyamatban..."):
             # Fűtőteljesítmény lekérése session state-ből
             heater_power = st.session_state.get('heater_power', None)
-            result = fetch_co2_emission_data(days_to_show, api_key, selected_table, heater_power)
+            result = fetch_co2_emission_data(days_to_show, None, selected_table, heater_power)
             
             if result and len(result) >= 3:
                 co2_hourly_df = result[0]
@@ -659,5 +652,114 @@ def show_home_page():
     if 'co2_hourly_dataframe' in st.session_state and st.session_state['co2_hourly_dataframe'] is not None:
         co2_hourly_df = st.session_state['co2_hourly_dataframe']
         
-        # CO2 adatok feldolgozása (diagramok és táblázatok eltávolítva)
+        # CO2 kibocsátás számítás táblázatos megjelenítése
+        if 'co2_daily_dataframe' in st.session_state and st.session_state['co2_daily_dataframe'] is not None:
+            daily_co2_df = st.session_state['co2_daily_dataframe']
+            
+            st.write("---")
+            st.write("## CO2 kibocsátás")
+            
+            # CO2 táblázat page size inicializálása
+            if "co2_page_size" not in st.session_state:
+                st.session_state.co2_page_size = 5
+            if "prev_co2_page_size" not in st.session_state:
+                st.session_state.prev_co2_page_size = st.session_state.co2_page_size
+            
+            # Page size választó a CO2 táblázathoz
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                page_size_options = [5, 15, 25]
+                current_co2_page_size = st.session_state.co2_page_size
+                try:
+                    current_index = page_size_options.index(current_co2_page_size)
+                except ValueError:
+                    current_index = 0
+                
+                co2_page_size = st.selectbox(
+                    "Elemek száma:",
+                    page_size_options,
+                    index=current_index,
+                    key="co2_page_size_selector"
+                )
+                
+                # Ha változott a page size, nullázzuk az offset-et
+                if co2_page_size != st.session_state.prev_co2_page_size:
+                    st.session_state.co2_table_offset = 0
+                    st.session_state.prev_co2_page_size = co2_page_size
+                
+                st.session_state.co2_page_size = co2_page_size
+            
+            with col2:
+                st.write("")
+            
+            # Session state inicializálása a CO2 táblázat lapozásához
+            if "co2_table_offset" not in st.session_state:
+                st.session_state.co2_table_offset = 0
+            
+            # CO2 táblázat page size lekérése
+            current_page_size = st.session_state.co2_page_size
+            
+            # Táblázatos megjelenítés
+            display_df = daily_co2_df[['Dátum', 'Napi átlagos teljesítmény (W)', 'Napi energia (kWh)', 'Napi CO2 (g)']].copy()
+            display_df.columns = ['Dátum', 'Átlagos teljesítmény (W)', 'Fogyasztás (kWh)', 'CO2 kibocsátás (g)']
+            
+            # Dátum formázása
+            display_df['Dátum'] = pd.to_datetime(display_df['Dátum']).dt.strftime('%Y-%m-%d')
+            
+            # Numerikus oszlopok kerekítése 2 tizedesjegyre
+            for col in ['Átlagos teljesítmény (W)', 'Fogyasztás (kWh)', 'CO2 kibocsátás (g)']:
+                if col in display_df.columns:
+                    display_df[col] = pd.to_numeric(display_df[col], errors='coerce').round(2)
+            
+            # Lapozás - csak a megfelelő oldal adatait jelenítjük meg
+            total_rows = len(display_df)
+            start_idx = st.session_state.co2_table_offset
+            end_idx = min(start_idx + current_page_size, total_rows)
+            display_df_paginated = display_df.iloc[start_idx:end_idx]
+            
+            # Táblázat megjelenítése
+            st.dataframe(display_df_paginated, use_container_width=True, hide_index=True)
+            
+            # Lapozás gombok
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 0.2, 0.2, 0.2, 0.2, 0.1, 0.3])
+            
+            with col1:
+                st.write("")
+            
+            with col2:
+                if st.button("⏮️", key="co2_first_page"):
+                    st.session_state.co2_table_offset = 0
+                    st.rerun()
+            
+            with col3:
+                if st.button("⬅️", key="co2_prev_page"):
+                    if st.session_state.co2_table_offset >= current_page_size:
+                        st.session_state.co2_table_offset -= current_page_size
+                        st.rerun()
+            
+            with col4:
+                next_offset = st.session_state.co2_table_offset + current_page_size
+                has_next_page = next_offset < total_rows
+                
+                if st.button("➡️", disabled=not has_next_page, key="co2_next_page"):
+                    st.session_state.co2_table_offset = next_offset
+                    st.rerun()
+            
+            with col5:
+                # Utolsó oldal offset
+                last_page_offset = ((total_rows - 1) // current_page_size) * current_page_size
+                is_on_last_page = st.session_state.co2_table_offset >= last_page_offset
+                
+                if st.button("⏭️", disabled=is_on_last_page, key="co2_last_page"):
+                    st.session_state.co2_table_offset = last_page_offset
+                    st.rerun()
+            
+            with col6:
+                st.write("")
+            
+            with col7:
+                # Jelenlegi oldal és összes oldal információ
+                current_page = (st.session_state.co2_table_offset // current_page_size) + 1
+                total_pages = (total_rows + current_page_size - 1) // current_page_size
+                st.write(f" **Oldal:** {current_page} / {total_pages}")
     
