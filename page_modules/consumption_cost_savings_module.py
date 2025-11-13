@@ -55,10 +55,17 @@ def show_consumption_cost_savings(start_date, end_date):
                         smart_df['date'] = smart_df['datetime'].dt.date
                         thermostat_df['date'] = thermostat_df['datetime'].dt.date
                         
-                        # Napi energia számítás
-                        smart_daily_energy_df = smart_df.groupby('date')['value'].sum().reset_index()
+                        # Mérési intervallum (15 perc = 0.25 óra)
+                        time_interval_hours = 0.25
+                        
+                        # Napi energia számítás: teljesítmény (W) × idő (h) / 1000 = energia (kWh)
+                        # A value oszlop W-ban van, szorozni kell az időintervallummal
+                        smart_df['energy_kwh'] = (smart_df['value'] * time_interval_hours) / 1000.0
+                        thermostat_df['energy_kwh'] = (thermostat_df['value'] * time_interval_hours) / 1000.0
+                        
+                        smart_daily_energy_df = smart_df.groupby('date')['energy_kwh'].sum().reset_index()
                         smart_daily_energy_df.columns = ['date', 'daily_energy_kwh']
-                        thermostat_daily_energy_df = thermostat_df.groupby('date')['value'].sum().reset_index()
+                        thermostat_daily_energy_df = thermostat_df.groupby('date')['energy_kwh'].sum().reset_index()
                         thermostat_daily_energy_df.columns = ['date', 'daily_energy_kwh']
                         
                         smart_daily = smart_df.groupby('date')['value'].mean().reset_index()
@@ -90,8 +97,7 @@ def show_consumption_cost_savings(start_date, end_date):
                         smart_daily_energy = smart_daily_energy_df['daily_energy_kwh'].mean()
                         thermostat_daily_energy = thermostat_daily_energy_df['daily_energy_kwh'].mean()
                         
-                        # Működési órák számítása 
-                        time_interval_hours = 0.25  # 15 perc = 0.25 óra
+                        # Működési órák számítása
                         
                         # Számoljuk meg, hogy hány intervallumban futott a vezérlő (value > 0)
                         # Napi bontásban számoljuk
@@ -322,18 +328,17 @@ def show_consumption_cost_savings(start_date, end_date):
                             
                             # Dinamikus fűtésvezérlő vs Beépített fűtőtest
                             if consumption_diff_smart_heater < 0:
-                                savings_w = abs(consumption_diff_smart_heater)
-                                # Napi átlagos fogyasztás különbség W-ban
-                                savings_w_day = savings_w
-                                # Havi átlagos fogyasztás különbség W-ban (napi átlag * 30)
-                                savings_w_month = savings_w * 30
-                                # Éves átlagos fogyasztás különbség W-ban (napi átlag * 365)
-                                savings_w_year = savings_w * 365
+                                # Napi átlagos teljesítmény megtakarítás W-ban
+                                savings_w_day = abs(consumption_diff_smart_heater)
+                                # Havi átlagos teljesítmény megtakarítás W-ban (ugyanaz, mert átlag)
+                                savings_w_month = savings_w_day
+                                # Éves átlagos teljesítmény megtakarítás W-ban (ugyanaz, mert átlag)
+                                savings_w_year = savings_w_day
                                 
                                 st.write("#### Dinamikus fűtésvezérlő vs Beépített fűtőtest")
                                 savings_data_smart_heater = {
                                     'Időszak': ['Napi', 'Havi', 'Éves'],
-                                    'Megtakarítás (W)': [
+                                    'Átlagos teljesítmény megtakarítás (W)': [
                                         f"{savings_w_day:.2f}",
                                         f"{savings_w_month:.2f}",
                                         f"{savings_w_year:.2f}"
@@ -346,24 +351,23 @@ def show_consumption_cost_savings(start_date, end_date):
                                     hide_index=True,
                                     column_config={
                                         "Időszak": st.column_config.TextColumn("Időszak", width="medium"),
-                                        "Megtakarítás (W)": st.column_config.TextColumn("Megtakarítás (W)", width="medium")
+                                        "Átlagos teljesítmény megtakarítás (W)": st.column_config.TextColumn("Átlagos teljesítmény megtakarítás (W)", width="medium")
                                     }
                                 )
                             
                             # Termosztátos vezérlő vs Beépített fűtőtest
                             if consumption_diff_thermo_heater < 0:
-                                savings_w = abs(consumption_diff_thermo_heater)
-                                # Napi átlagos fogyasztás különbség W-ban
-                                savings_w_day = savings_w
-                                # Havi átlagos fogyasztás különbség W-ban (napi átlag * 30)
-                                savings_w_month = savings_w * 30
-                                # Éves átlagos fogyasztás különbség W-ban (napi átlag * 365)
-                                savings_w_year = savings_w * 365
+                                # Napi átlagos teljesítmény megtakarítás W-ban
+                                savings_w_day = abs(consumption_diff_thermo_heater)
+                                # Havi átlagos teljesítmény megtakarítás W-ban (ugyanaz, mert átlag)
+                                savings_w_month = savings_w_day
+                                # Éves átlagos teljesítmény megtakarítás W-ban (ugyanaz, mert átlag)
+                                savings_w_year = savings_w_day
                                 
                                 st.write("#### Termosztátos vezérlő vs Beépített fűtőtest")
                                 savings_data_thermo_heater = {
                                     'Időszak': ['Napi', 'Havi', 'Éves'],
-                                    'Megtakarítás (W)': [
+                                    'Átlagos teljesítmény megtakarítás (W)': [
                                         f"{savings_w_day:.2f}",
                                         f"{savings_w_month:.2f}",
                                         f"{savings_w_year:.2f}"
@@ -376,7 +380,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                     hide_index=True,
                                     column_config={
                                         "Időszak": st.column_config.TextColumn("Időszak", width="medium"),
-                                        "Megtakarítás (W)": st.column_config.TextColumn("Megtakarítás (W)", width="medium")
+                                        "Átlagos teljesítmény megtakarítás (W)": st.column_config.TextColumn("Átlagos teljesítmény megtakarítás (W)", width="medium")
                                     }
                                 )
                             
@@ -475,10 +479,11 @@ def show_consumption_cost_savings(start_date, end_date):
                             )
                             
                             # Napi energia és teljesítmény számítása
-                            smart_daily_energy_per_day = smart_df.groupby('date')['value'].sum()
-                            thermostat_daily_energy_per_day = thermostat_df.groupby('date')['value'].sum()
+                            # Napi energia kWh-ban (már kiszámítva az energy_kwh oszlopból)
+                            smart_daily_energy_per_day = smart_df.groupby('date')['energy_kwh'].sum()
+                            thermostat_daily_energy_per_day = thermostat_df.groupby('date')['energy_kwh'].sum()
                             
-                            # Teljesítmény W-ban = (Energia kWh / Működési óra) * 1000
+                            # Átlagos teljesítmény W-ban = (Energia kWh / Működési óra) * 1000
                             smart_daily_w = (smart_daily_energy_per_day / smart_daily_operating_hours.replace(0, 1)) * 1000
                             smart_daily_w = smart_daily_w.replace([np.inf, -np.inf], 0)
                             
