@@ -38,7 +38,7 @@ def show_home_page():
     # Session state inicializálása
     if "selected_table" not in st.session_state:
         st.session_state.selected_table = "dfv_smart_db"
-        st.session_state.table_display_name = "Oksovezérlő"
+        st.session_state.table_display_name = "Okosvezérlő"
         st.session_state.prev_selected_table = None
     
     selected_table = st.session_state.selected_table
@@ -74,17 +74,14 @@ def show_home_page():
     col1, col2 = st.columns(2)
     
     with col1:
-        # Oksovezérlő gomb - narancssárga ha kiválasztott
         if selected_table == "dfv_smart_db":
             if st.button("Oksovezérlő", use_container_width=True, type="primary"):
-                # Előző tábla mentése
                 st.session_state.prev_selected_table = st.session_state.selected_table
                 st.session_state.selected_table = "dfv_smart_db"
                 st.session_state.table_display_name = "Oksovezérlő"
                 st.rerun()
         else:
             if st.button("Oksovezérlő", use_container_width=True, type="secondary"):
-                # Előző tábla mentése
                 st.session_state.prev_selected_table = st.session_state.selected_table
                 st.session_state.selected_table = "dfv_smart_db"
                 st.session_state.table_display_name = "Oksovezérlő"
@@ -153,9 +150,9 @@ def show_home_page():
         
         # Oszlopok meghatározása a táblánév alapján (feszültség oszlop kizárása)
         if selected_table == "dfv_smart_db":
-            columns = "id, date, time, trend_smart_t, trend_smart_i1, trend_smart_p, trend_smart_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+            columns = "id, date, time, trend_smart_dp, trend_smart_t, trend_smart_i1, trend_smart_p, trend_smart_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
         elif selected_table == "dfv_termosztat_db":
-            columns = "id, date, time, trend_termosztat_t, trend_termosztat_i1, trend_termosztat_p, trend_termosztat_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+            columns = "id, date, time, trend_termosztat_dp, trend_termosztat_t, trend_termosztat_i1, trend_termosztat_p, trend_termosztat_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
         else:
             columns = "*"  # Ha más tábla, akkor minden oszlop
         
@@ -198,6 +195,9 @@ def show_home_page():
                     try:
                         df_display[col] = pd.to_numeric(df_display[col], errors='coerce')
                         if df_display[col].dtype in ['float64', 'int64', 'float32', 'int32']:
+                            # Teljesítmény oszlop konvertálása kW-ból W-ba
+                            if col == "Teljesítmény (W)":
+                                df_display[col] = df_display[col] * 1000
                             df_display[col] = df_display[col].round(2)
                     except:
                         pass  # Ha nem lehet konvertálni, hagyja változatlanul
@@ -462,9 +462,9 @@ def show_home_page():
                     if chart_data is None:
                         # Oszlopok meghatározása a táblánév alapján (feszültség oszlop kizárása)
                         if selected_table == "dfv_smart_db":
-                            chart_columns = "id, date, time, trend_smart_t, trend_smart_i1, trend_smart_p, trend_smart_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+                            chart_columns = "id, date, time, trend_smart_dp, trend_smart_t, trend_smart_i1, trend_smart_p, trend_smart_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
                         elif selected_table == "dfv_termosztat_db":
-                            chart_columns = "id, date, time, trend_termosztat_t, trend_termosztat_i1, trend_termosztat_p, trend_termosztat_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+                            chart_columns = "id, date, time, trend_termosztat_dp, trend_termosztat_t, trend_termosztat_i1, trend_termosztat_p, trend_termosztat_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
                         else:
                             chart_columns = "*"  # Ha más tábla, akkor minden oszlop
                         
@@ -502,6 +502,10 @@ def show_home_page():
                 # Csak annyi oszlopnevet használunk, amennyi oszlop van
                 available_columns_chart = min(len(column_names_chart), len(chart_df.columns))
                 chart_df.columns = column_names_chart[:available_columns_chart]
+                
+                # Teljesítmény oszlop konvertálása kW-ból W-ba (ha létezik)
+                if "Teljesítmény (W)" in chart_df.columns:
+                    chart_df["Teljesítmény (W)"] = pd.to_numeric(chart_df["Teljesítmény (W)"], errors='coerce') * 1000
                 
                 # Dátum-idő oszlop kombinálása - dinamikusan az oszlopok indexe alapján
                 # Ha van legalább 3 oszlop (ID, Dátum, Idő), akkor a 2. és 3. oszlopokat használjuk
