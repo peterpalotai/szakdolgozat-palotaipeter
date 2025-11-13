@@ -152,7 +152,7 @@ def show_home_page():
         if selected_table == "dfv_smart_db":
             columns = "id, date, time, trend_smart_dp, trend_smart_t, trend_smart_i1, trend_smart_p, trend_smart_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
         elif selected_table == "dfv_termosztat_db":
-            columns = "id, date, time, trend_termosztat_dp, trend_termosztat_t, trend_termosztat_i1, trend_termosztat_p, trend_termosztat_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+            columns = "id, date, time, trend_termosztat_t, trend_termosztat_i1, trend_termosztat_p, trend_termosztat_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
         else:
             columns = "*"  # Ha más tábla, akkor minden oszlop
         
@@ -170,12 +170,19 @@ def show_home_page():
             df = pd.DataFrame(result)
             st.write(f"### {table_display_name} adatai")
             
-            # Oszlopnevek definiálása
-            column_names = [
-                "Dátum", "Idő", "Harmatpont (°C)", "Hőmérséklet (°C)", 
-                "Áramerősség (A)", "Teljesítmény (W)", 
-                "Relatív páratartalom (%)", "Külső páratartalom (%)", "Külső hőmérséklet (°C)"
-            ]
+            # Oszlopnevek definiálása - termosztátos vezérlőnél nincs harmatpont
+            if selected_table == "dfv_termosztat_db":
+                column_names = [
+                    "Dátum", "Idő", "Hőmérséklet (°C)", 
+                    "Áramerősség (A)", "Teljesítmény (W)", 
+                    "Relatív páratartalom (%)", "Külső páratartalom (g/m³)", "Külső hőmérséklet (°C)"
+                ]
+            else:
+                column_names = [
+                    "Dátum", "Idő", "Harmatpont (°C)", "Hőmérséklet (°C)", 
+                    "Áramerősség (A)", "Teljesítmény (W)", 
+                    "Relatív páratartalom (%)", "Külső páratartalom (g/m³)", "Külső hőmérséklet (°C)"
+                ]
             
             # Az első oszlop (0. index) kihagyása, de az index oszlop megjelenítése
             if len(df.columns) > 1:
@@ -464,7 +471,7 @@ def show_home_page():
                         if selected_table == "dfv_smart_db":
                             chart_columns = "id, date, time, trend_smart_dp, trend_smart_t, trend_smart_i1, trend_smart_p, trend_smart_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
                         elif selected_table == "dfv_termosztat_db":
-                            chart_columns = "id, date, time, trend_termosztat_dp, trend_termosztat_t, trend_termosztat_i1, trend_termosztat_p, trend_termosztat_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
+                            chart_columns = "id, date, time, trend_termosztat_t, trend_termosztat_i1, trend_termosztat_p, trend_termosztat_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
                         else:
                             chart_columns = "*"  # Ha más tábla, akkor minden oszlop
                         
@@ -495,9 +502,15 @@ def show_home_page():
                 chart_df = pd.DataFrame(chart_data)
                 
                 
-                column_names_chart = ["ID", "Dátum", "Idő", "Harmatpont (°C)", "Hőmérséklet (°C)", 
-                                  "Áramerősség (A)", "Teljesítmény (W)", 
-                                  "Relatív páratartalom (%)", "Külső páratartalom (%)", "Külső hőmérséklet (°C)"]
+                # Oszlopnevek definiálása - termosztátos vezérlőnél nincs harmatpont
+                if selected_table == "dfv_termosztat_db":
+                    column_names_chart = ["ID", "Dátum", "Idő", "Hőmérséklet (°C)", 
+                                      "Áramerősség (A)", "Teljesítmény (W)", 
+                                      "Relatív páratartalom (%)", "Külső páratartalom (g/m³)", "Külső hőmérséklet (°C)"]
+                else:
+                    column_names_chart = ["ID", "Dátum", "Idő", "Harmatpont (°C)", "Hőmérséklet (°C)", 
+                                      "Áramerősség (A)", "Teljesítmény (W)", 
+                                      "Relatív páratartalom (%)", "Külső páratartalom (g/m³)", "Külső hőmérséklet (°C)"]
                 #Csak a szükséges oszlopnevek használata
                 available_columns_chart = min(len(column_names_chart), len(chart_df.columns))
                 chart_df.columns = column_names_chart[:available_columns_chart]
