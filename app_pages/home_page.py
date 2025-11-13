@@ -148,7 +148,7 @@ def show_home_page():
         # Globális page size lekérése session state-ből
         current_page_size = st.session_state.global_page_size
         
-        # Oszlopok meghatározása a táblánév alapján (feszültség oszlop kizárása)
+        #Feszültség kivételével minden oszlop
         if selected_table == "dfv_smart_db":
             columns = "id, date, time, trend_smart_dp, trend_smart_t, trend_smart_i1, trend_smart_p, trend_smart_rh, trend_kulso_paratartalom, trend_kulso_homerseklet_pillanatnyi"
         elif selected_table == "dfv_termosztat_db":
@@ -195,7 +195,7 @@ def show_home_page():
                     try:
                         df_display[col] = pd.to_numeric(df_display[col], errors='coerce')
                         if df_display[col].dtype in ['float64', 'int64', 'float32', 'int32']:
-                            # Teljesítmény oszlop konvertálása kW-ból W-ba
+                            # Teljesítmény oszlop kW-ból W-ra
                             if col == "Teljesítmény (W)":
                                 df_display[col] = df_display[col] * 1000
                             df_display[col] = df_display[col].round(2)
@@ -489,21 +489,20 @@ def show_home_page():
                     st.error(f"Részletek: {traceback.format_exc()}")
                     chart_data = None
             
-            # Diagram megjelenítése (cache-ből vagy új adatokból)
-            # Ellenőrizzük, hogy van-e adat (nem None és nem üres lista)
+           
             if chart_data and len(chart_data) > 0:
                 # DataFrame létrehozása a diagramhoz
                 chart_df = pd.DataFrame(chart_data)
                 
-                # Oszlopnevek beállítása - dinamikusan az oszlopok száma szerint
+                
                 column_names_chart = ["ID", "Dátum", "Idő", "Harmatpont (°C)", "Hőmérséklet (°C)", 
                                   "Áramerősség (A)", "Teljesítmény (W)", 
                                   "Relatív páratartalom (%)", "Külső páratartalom (%)", "Külső hőmérséklet (°C)"]
-                # Csak annyi oszlopnevet használunk, amennyi oszlop van
+                #Csak a szükséges oszlopnevek használata
                 available_columns_chart = min(len(column_names_chart), len(chart_df.columns))
                 chart_df.columns = column_names_chart[:available_columns_chart]
                 
-                # Teljesítmény oszlop konvertálása kW-ból W-ba (ha létezik)
+                # Teljesítmény oszlop kW-ból W-ba
                 if "Teljesítmény (W)" in chart_df.columns:
                     chart_df["Teljesítmény (W)"] = pd.to_numeric(chart_df["Teljesítmény (W)"], errors='coerce') * 1000
                 
