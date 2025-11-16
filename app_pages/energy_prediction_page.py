@@ -38,7 +38,7 @@ def show_energy_prediction_page():
     st.write("# Energiafogyasztás és megtakarítás előrejelzés")
     
     # E.ON árak státusz megjelenítése
-    if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
+    if 'loss_prices' in st.session_state and st.session_state.loss_prices is not None:
         st.success("✅ Árak elérhetők")
     elif 'eon_error' in st.session_state and st.session_state.eon_error:
         st.error(f"❌ E.ON árak lekérése sikertelen: {st.session_state.eon_error}")
@@ -64,77 +64,306 @@ def show_energy_prediction_page():
     if "arima_data" not in st.session_state:
         st.session_state.arima_data = None
     
-    #Tábla kiválasztása
+
     st.write("## Adatok kiválasztása")
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        table_options = {
-            "dfv_smart_db": "Oksovezérlő",
-            "dfv_termosztat_db": "Termosztátos vezérlő"
-        }
-        
-        selected_table = st.selectbox(
-            "Válassz táblát:",
-            options=list(table_options.keys()),
-            format_func=lambda x: table_options[x],
-            key="arima_table_selector"
-        )
-    
+    # Csak a dinamikus fűtésvezérlő (okosvezérlő) használata
+    selected_table = "dfv_smart_db"
     
 
-    st.write("### Időintervallum beállítása")
+    st.write("---")
+    st.write("## Előrejelzés típusa")
     
-    col1, col2 = st.columns(2)
+    # Előrejelzés típusának kiválasztása
+    forecast_type = st.selectbox(
+        "Válassz előrejelzési típust:",
+        options=["havi", "negyedéves", "féléves", "éves"],
+        key="forecast_type_selector"
+    )
     
-    with col1:
-        # Kezdő dátum
-        start_date = st.date_input(
-            "Kezdő dátum:",
-            value=datetime(2024, 8, 19),
-            key="arima_start_date"
+    # Időszak kiválasztó a típus alapján
+    selected_period = None
+    forecast_start_date = None
+    forecast_end_date = None
+    
+    if forecast_type == "havi":
+        # Havi előrejelzés: hónap kiválasztása (év nélkül)
+        month_names = ["Január", "Február", "Március", "Április", "Május", "Június",
+                      "Július", "Augusztus", "Szeptember", "Október", "November", "December"]
+        
+        selected_month_name = st.selectbox(
+            "Válassz hónapot:",
+            options=month_names,
+            key="month_selector"
         )
-    
-    with col2:
-        # Befejező dátum
-        end_date = st.date_input(
-            "Befejező dátum:",
-            value=datetime(2025, 8, 21),
-            key="arima_end_date"
+        
+        # Hónap számának meghatározása
+        selected_month = month_names.index(selected_month_name) + 1
+        selected_period = f"{selected_month:02d}"
+        
+        # Session state-be mentés, hogy a gomb megnyomása után is elérhető legyen
+        st.session_state.selected_month = selected_month
+        
+        # Előrejelzési dátumok meghatározása - JÖVŐRE vonatkozik (2025 augusztus 21 után)
+        # A következő év ugyanazon hónapjára készítünk előrejelzést
+        forecast_year = 2026
+        forecast_start_date = datetime(forecast_year, selected_month, 1)
+        # Hónap utolsó napjának meghatározása
+        if selected_month == 12:
+            forecast_end_date = datetime(forecast_year, 12, 31)
+        else:
+            forecast_end_date = datetime(forecast_year, selected_month + 1, 1) - timedelta(days=1)
+        
+    elif forecast_type == "negyedéves":
+        # Negyedéves előrejelzés: negyedév kiválasztása (év nélkül)
+        quarter_names = [
+            "1. negyedév (Január-Március)",
+            "2. negyedév (Április-Június)",
+            "3. negyedév (Július-Szeptember)",
+            "4. negyedév (Október-December)"
+        ]
+        
+        selected_quarter_name = st.selectbox(
+            "Válassz negyedévet:",
+            options=quarter_names,
+            key="quarter_selector"
         )
+        
+        # Negyedév számának meghatározása
+        if "1. negyedév" in selected_quarter_name:
+            selected_quarter = 1
+        elif "2. negyedév" in selected_quarter_name:
+            selected_quarter = 2
+        elif "3. negyedév" in selected_quarter_name:
+            selected_quarter = 3
+        else:  # 4. negyedév
+            selected_quarter = 4
+        
+        selected_period = f"Q{selected_quarter}"
+        
+        # Session state-be mentés, hogy a gomb megnyomása után is elérhető legyen
+        st.session_state.selected_quarter = selected_quarter
+        
+        # Negyedév dátumainak meghatározása - JÖVŐRE vonatkozik (2025 augusztus 21 után)
+        # A következő év ugyanazon negyedévére készítünk előrejelzést
+        forecast_year = 2026
+        if selected_quarter == 1:
+            forecast_start_date = datetime(forecast_year, 1, 1)
+            forecast_end_date = datetime(forecast_year, 3, 31)
+        elif selected_quarter == 2:
+            forecast_start_date = datetime(forecast_year, 4, 1)
+            forecast_end_date = datetime(forecast_year, 6, 30)
+        elif selected_quarter == 3:
+            forecast_start_date = datetime(forecast_year, 7, 1)
+            forecast_end_date = datetime(forecast_year, 9, 30)
+        else:  # 4. negyedév
+            forecast_start_date = datetime(forecast_year, 10, 1)
+            forecast_end_date = datetime(forecast_year, 12, 31)
+            
+    elif forecast_type == "féléves":
+        # Féléves előrejelzés: félév kiválasztása (év nélkül)
+        semester_names = [
+            "1. félév (Január-Június)",
+            "2. félév (Július-December)"
+        ]
+        
+        selected_semester_name = st.selectbox(
+            "Válassz félévet:",
+            options=semester_names,
+            key="semester_selector"
+        )
+        
+        # Félév számának meghatározása
+        if "1. félév" in selected_semester_name:
+            selected_semester = 1
+        else:  # 2. félév
+            selected_semester = 2
+        
+        selected_period = f"S{selected_semester}"
+        
+        # Session state-be mentés, hogy a gomb megnyomása után is elérhető legyen
+        st.session_state.selected_semester = selected_semester
+        
+        # Félév dátumainak meghatározása - JÖVŐRE vonatkozik (2025 augusztus 21 után)
+        # A következő év ugyanazon félévére készítünk előrejelzést
+        forecast_year = 2026
+        if selected_semester == 1:
+            forecast_start_date = datetime(forecast_year, 1, 1)
+            forecast_end_date = datetime(forecast_year, 6, 30)
+        else:  # 2. félév
+            forecast_start_date = datetime(forecast_year, 7, 1)
+            forecast_end_date = datetime(forecast_year, 12, 31)
+            
+    else:  # éves
+        # Éves előrejelzés: JÖVŐRE vonatkozik (2025 augusztus 21 után)
+        # A következő évre készítünk előrejelzést
+        forecast_start_date = datetime(2026, 1, 1)
+        forecast_end_date = datetime(2026, 12, 31)
+        selected_period = "2026"
     
-    # Adatok betöltése
-    if st.button("Adatok betöltése", type="primary"):
-        with st.spinner("Adatok betöltése folyamatban van..."):
+    # Előrejelzés generálása
+    if st.button("Előrejelzés generálása", type="primary"):
+        with st.spinner("Adatok betöltése és előrejelzés generálása folyamatban..."):
             try:
-                # Adatok lekérdezése a közvetlen teljesítmény oszlopból + külső változók
+                # Oszlopnevek meghatározása
                 power_column = "trend_smart_p" if selected_table == "dfv_smart_db" else "trend_termosztat_p"
                 current_column = "trend_smart_i1" if selected_table == "dfv_smart_db" else "trend_termosztat_i1"
                 temp_column = "trend_smart_t" if selected_table == "dfv_smart_db" else "trend_termosztat_t"
                 humidity_column = "trend_smart_rh" if selected_table == "dfv_smart_db" else "trend_termosztat_rh"
                 
-                query = f"""
-                SELECT date, time, 
-                       {power_column} as value,
-                       {current_column} as current,
-                       {temp_column} as internal_temp,
-                       trend_kulso_homerseklet_pillanatnyi as external_temp,
-                       {humidity_column} as internal_humidity,
-                       trend_kulso_paratartalom as external_humidity
-                FROM {selected_table}
-                WHERE DATE(date) BETWEEN '{start_date}' AND '{end_date}'
-                AND {power_column} IS NOT NULL 
-                AND {current_column} IS NOT NULL
-                AND {temp_column} IS NOT NULL
-                AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
-                ORDER BY date, time
-                """
+                # Adatbázisból történeti adatok lekérdezése a megfelelő időszakhoz
+                data = None  # Inicializálás
                 
-                data = execute_query(query)
+                if forecast_type == "havi":
+                    # Session state-ből lekérdezés a selected_month értékére
+                    if 'selected_month' not in st.session_state:
+                        st.error("Hiba: Kérjük, válasszon hónapot az előrejelzéshez!")
+                        st.stop()
+                    
+                    selected_month_value = st.session_state.selected_month
+                    
+                    # Ugyanazon hónap keresése az előző évekből
+                    # Május (5) esetén dátum alapú lekérdezést használunk, mint a megtakarítási modulban
+                    if selected_month_value == 5:  # Május
+                        # 2025-ös májusi adatok dátum alapú lekérdezéssel (mint a megtakarítási modulban)
+                        start_date = "2025-05-01"
+                        end_date = "2025-05-31"
+                        query = f"""
+                        SELECT date, time, 
+                               {power_column} as value,
+                               {current_column} as current,
+                               {temp_column} as internal_temp,
+                               trend_kulso_homerseklet_pillanatnyi as external_temp,
+                               {humidity_column} as internal_humidity,
+                               trend_kulso_paratartalom as external_humidity
+                        FROM {selected_table}
+                        WHERE DATE(date) BETWEEN '{start_date}' AND '{end_date}'
+                        AND {power_column} IS NOT NULL 
+                        AND {current_column} IS NOT NULL
+                        AND {temp_column} IS NOT NULL
+                        AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
+                        ORDER BY date, time
+                        """
+                        data = execute_query(query)
+                    else:
+                        # Minden más hónap esetén minden évből
+                        query = f"""
+                        SELECT date, time, 
+                               {power_column} as value,
+                               {current_column} as current,
+                               {temp_column} as internal_temp,
+                               trend_kulso_homerseklet_pillanatnyi as external_temp,
+                               {humidity_column} as internal_humidity,
+                               trend_kulso_paratartalom as external_humidity
+                        FROM {selected_table}
+                        WHERE EXTRACT(MONTH FROM date) = {selected_month_value}
+                        AND {power_column} IS NOT NULL 
+                        AND {current_column} IS NOT NULL
+                        AND {temp_column} IS NOT NULL
+                        AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
+                        ORDER BY date, time
+                        """
+                        data = execute_query(query)
+                elif forecast_type == "negyedéves":
+                    # Session state-ből lekérdezés a selected_quarter értékére
+                    if 'selected_quarter' not in st.session_state:
+                        st.error("Hiba: Kérjük, válasszon negyedévet az előrejelzéshez!")
+                        st.stop()
+                    
+                    selected_quarter = st.session_state.selected_quarter
+                    
+                    # Ugyanazon negyedév keresése az előző évekből - hónap számok alapján
+                    # 1. negyedév = január(1), február(2), március(3)
+                    # 2. negyedév = április(4), május(5), június(6)
+                    # 3. negyedév = július(7), augusztus(8), szeptember(9)
+                    # 4. negyedév = október(10), november(11), december(12)
+                    if selected_quarter == 1:
+                        month_numbers = [1, 2, 3]  # Január, február, március
+                    elif selected_quarter == 2:
+                        month_numbers = [4, 5, 6]  # Április, május, június
+                    elif selected_quarter == 3:
+                        month_numbers = [7, 8, 9]  # Július, augusztus, szeptember
+                    else:  # 4. negyedév
+                        month_numbers = [10, 11, 12]  # Október, november, december
+                    
+                    month_list = ','.join(map(str, month_numbers))
+                    query = f"""
+                    SELECT date, time, 
+                           {power_column} as value,
+                           {current_column} as current,
+                           {temp_column} as internal_temp,
+                           trend_kulso_homerseklet_pillanatnyi as external_temp,
+                           {humidity_column} as internal_humidity,
+                           trend_kulso_paratartalom as external_humidity
+                    FROM {selected_table}
+                    WHERE EXTRACT(MONTH FROM date) IN ({month_list})
+                    AND {power_column} IS NOT NULL 
+                    AND {current_column} IS NOT NULL
+                    AND {temp_column} IS NOT NULL
+                    AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
+                    ORDER BY date, time
+                    """
+                    data = execute_query(query)
+                elif forecast_type == "féléves":
+                    # Session state-ből lekérdezés a selected_semester értékére
+                    if 'selected_semester' not in st.session_state:
+                        st.error("Hiba: Kérjük, válasszon félévet az előrejelzéshez!")
+                        st.stop()
+                    
+                    selected_semester = st.session_state.selected_semester
+                    
+                    # Ugyanazon félév keresése az előző évekből - hónap számok alapján
+                    # 1. félév = január(1), február(2), március(3), április(4), május(5), június(6)
+                    # 2. félév = július(7), augusztus(8), szeptember(9), október(10), november(11), december(12)
+                    if selected_semester == 1:
+                        month_numbers = [1, 2, 3, 4, 5, 6]  # Január - június
+                    else:  # 2. félév
+                        month_numbers = [7, 8, 9, 10, 11, 12]  # Július - december
+                    
+                    month_list = ','.join(map(str, month_numbers))
+                    query = f"""
+                    SELECT date, time, 
+                           {power_column} as value,
+                           {current_column} as current,
+                           {temp_column} as internal_temp,
+                           trend_kulso_homerseklet_pillanatnyi as external_temp,
+                           {humidity_column} as internal_humidity,
+                           trend_kulso_paratartalom as external_humidity
+                    FROM {selected_table}
+                    WHERE EXTRACT(MONTH FROM date) IN ({month_list})
+                    AND {power_column} IS NOT NULL 
+                    AND {current_column} IS NOT NULL
+                    AND {temp_column} IS NOT NULL
+                    AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
+                    ORDER BY date, time
+                    """
+                    data = execute_query(query)
+                else:  # éves
+                    # Az egész adatbázis használata - semmit nem szűrünk dátum vagy hónap szerint
+                    # Az összes elérhető adatot használjuk az előrejelzéshez
+                    query = f"""
+                    SELECT date, time, 
+                           {power_column} as value,
+                           {current_column} as current,
+                           {temp_column} as internal_temp,
+                           trend_kulso_homerseklet_pillanatnyi as external_temp,
+                           {humidity_column} as internal_humidity,
+                           trend_kulso_paratartalom as external_humidity
+                    FROM {selected_table}
+                    WHERE {power_column} IS NOT NULL 
+                    AND {current_column} IS NOT NULL
+                    AND {temp_column} IS NOT NULL
+                    AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
+                    ORDER BY date, time
+                    """
+                    data = execute_query(query)
+                    
+                    # Ellenőrzés: az egész adathalmazt használjuk
+                    if data and len(data) > 0:
+                        st.info(f"ℹ️ Az előrejelzéshez {len(data)} adatsor került felhasználásra az egész adatbázisból.")
                 
                 if data and len(data) > 0:
-                    # DataFrame létrehozása a közvetlen teljesítmény értékekkel + külső változók
+                    # DataFrame létrehozása
                     df = pd.DataFrame(data, columns=['date', 'time', 'value', 'current', 
                                                     'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity'])
                     
@@ -154,7 +383,7 @@ def show_energy_prediction_page():
                     # Rendezés dátum szerint
                     df = df.sort_values('datetime').reset_index(drop=True)
                     
-                    # Napi átlagolás az ARIMA modellhez + külső változók
+                    # Napi átlagolás az ARIMA modellhez
                     df['date'] = df['datetime'].dt.date
                     daily_df = df.groupby('date').agg({
                         'value': 'mean',
@@ -167,284 +396,270 @@ def show_energy_prediction_page():
                     daily_df = daily_df.drop('date', axis=1)
                     daily_df = daily_df.sort_values('datetime').reset_index(drop=True)
                     
-                    # Session state-be mentés (napi átlagolt adatok)
-                    st.session_state.arima_data = daily_df
-                    st.session_state.arima_model_trained = False
+                    # Hiányzó értékek eltávolítása a napi átlagolás után is
+                    daily_df = daily_df.dropna(subset=['value', 'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity'])
                     
-                    st.success(f"✅ {len(df)} fogyasztási adatpont betöltve és {len(daily_df)} napi átlagra konvertálva!")
+                    # Ellenőrzés: van-e elég adat az ARIMA modell betanításához
+                    if len(daily_df) < 10:
+                        st.warning(f"⚠️ Figyelem: Csak {len(daily_df)} napi adatpont található. Az ARIMA modell betanításához legalább 10 napi adat ajánlott.")
                     
-                    # Napi átlagolt számított fogyasztás statisztikák megjelenítése
-                    st.write("### Napi átlagolt számított fogyasztás statisztikák")
+                    if len(daily_df) == 0:
+                        st.error("❌ Nincs elég adat az előrejelzéshez! Kérjük, válasszon más időszakot.")
+                        st.stop()
                     
-                    col1, col2, col3, col4 = st.columns(4)
-                    with col1:
-                        st.metric("Napi átlagok száma", len(daily_df))
-                    with col2:
-                        st.metric("Minimális napi átlag", f"{daily_df['value'].min():.2f} W")
-                    with col3:
-                        st.metric("Maximális napi átlag", f"{daily_df['value'].max():.2f} W")
-                    with col4:
-                        st.metric("Átlagos napi fogyasztás", f"{daily_df['value'].mean():.2f} W")
+                    # Előrejelzési időszak napjainak számának meghatározása
+                    forecast_days = (forecast_end_date - forecast_start_date).days + 1
                     
-                        
+                    # ARIMA modell betanítása és előrejelzés
+                    ts = daily_df.set_index('datetime')['value']
+                    exog = daily_df.set_index('datetime')[['internal_temp', 'external_temp', 'internal_humidity', 'external_humidity']]
+                    
+                    # SARIMAX modell betanítása
+                    model = SARIMAX(ts, 
+                                  exog=exog,
+                                  order=(1, 1, 1),
+                                  seasonal_order=(0, 0, 0, 0),
+                                  enforce_stationarity=False,
+                                  enforce_invertibility=False)
+                    fitted_model = model.fit()
+                    
+                    # Előrejelzési dátumok generálása
+                    forecast_dates = pd.date_range(
+                        start=forecast_start_date,
+                        end=forecast_end_date,
+                        freq='D'
+                    )
+                    
+                    # Külső változók előrejelzése az előrejelzési időszakra
+                    # Használjuk a történeti adatok átlagát vagy az utolsó értékeket
+                    if len(exog) >= forecast_days:
+                        # Ha van elég adat, az utolsó N napot használjuk
+                        exog_forecast_values = exog.iloc[-forecast_days:].values
+                    else:
+                        # Ha nincs elég adat, az utolsó értékeket ismételjük
+                        last_exog = exog.iloc[-1:].values
+                        exog_forecast_values = np.tile(last_exog, (forecast_days, 1))
+                    
+                    # DataFrame létrehozása a megfelelő indexszel
+                    exog_forecast = pd.DataFrame(
+                        exog_forecast_values,
+                        columns=exog.columns,
+                        index=forecast_dates
+                    )
+                    
+                    # Előrejelzés generálása
+                    forecast = fitted_model.forecast(steps=forecast_days, exog=exog_forecast)
+                    conf_int = fitted_model.get_forecast(steps=forecast_days, exog=exog_forecast).conf_int(alpha=0.05)
+                    
+                    # Előrejelzési DataFrame
+                    forecast_df = pd.DataFrame({
+                        'datetime': forecast_dates,
+                        'forecast': forecast.values,
+                        'lower_bound': conf_int.iloc[:, 0],
+                        'upper_bound': conf_int.iloc[:, 1]
+                    })
+                    
+                    # Alsó határ korlátozása 0-ra
+                    forecast_df['lower_bound'] = forecast_df['lower_bound'].clip(lower=0)
+                    
+                    # Session state-be mentés
+                    st.session_state.forecast_df = forecast_df.copy()
+                    st.session_state.forecast_type = forecast_type
+                    st.session_state.forecast_period = selected_period
+                    
+                    st.success(f"✅ Előrejelzés sikeresen generálva {forecast_days} napra!")
+                    
                 else:
-                    st.warning("Nincs adat a kiválasztott időintervallumban!")
+                    st.warning("Nincs adat a kiválasztott időszakhoz az adatbázisban!")
                     
             except Exception as e:
-                st.error(f"Hiba az adatok betöltésekor: {e}")
+                st.error(f"Hiba az előrejelzés generálásakor: {e}")
+                import traceback
+                st.error(traceback.format_exc())
     
-    # ARIMA modell paraméterek beállítása
-    if st.session_state.arima_data is not None and not st.session_state.arima_data.empty:
+    # Előrejelzés megjelenítése
+    if 'forecast_df' in st.session_state and st.session_state.forecast_df is not None:
         st.write("---")
         st.write("## Fogyasztás előrejelzés")
         
-        # Előrejelzési napok száma beállítása
-        forecast_periods = st.number_input("Előrejelzési napok száma", min_value=1, max_value=365, value=30, step=1, key="forecast_periods")
-        
-        # Konfidencia szint rögzítve 95%-ra
-        confidence_level = 0.95
-        
-        
-        with st.spinner("ARIMA modell betanítása és előrejelzés generálása..."):
-            try:
-                df = st.session_state.arima_data.copy()
+        try:
+            forecast_df = st.session_state.forecast_df.copy()
+            forecast_type = st.session_state.get('forecast_type', 'havi')
+            
+            # Vizuális megjelenítés - CSAK az előrejelzett időszak
+            # Az adatok kW-ban vannak (mint a megtakarítási modulban)
+            # Ha az értékek nagyobbak mint 1, akkor valószínűleg W-ban vannak, konvertáljuk kW-ra
+            forecast_values_for_chart = forecast_df['forecast'].copy()
+            upper_bound_for_chart = forecast_df['upper_bound'].copy()
+            lower_bound_for_chart = forecast_df['lower_bound'].copy()
+            
+            # Ha az átlagos érték nagyobb mint 1, akkor valószínűleg W-ban van, konvertáljuk kW-ra
+            if forecast_values_for_chart.mean() > 1:
+                forecast_values_for_chart = forecast_values_for_chart / 1000
+                upper_bound_for_chart = upper_bound_for_chart / 1000
+                lower_bound_for_chart = lower_bound_for_chart / 1000
+            
+            fig = go.Figure()
+            
+            # Előrejelzés vonal
+            fig.add_trace(go.Scatter(
+                x=forecast_df['datetime'],
+                y=forecast_values_for_chart,
+                mode='lines+markers',
+                name='Előrejelzett fogyasztás',
+                line=dict(color='red', width=2),
+                marker=dict(size=4, symbol='circle')
+            ))
+            
+            # Konfidencia intervallum
+            fig.add_trace(go.Scatter(
+                x=forecast_df['datetime'],
+                y=upper_bound_for_chart,
+                mode='lines',
+                line=dict(width=0),
+                showlegend=False,
+                hoverinfo='skip'
+            ))
+            
+            fig.add_trace(go.Scatter(
+                x=forecast_df['datetime'],
+                y=lower_bound_for_chart,
+                mode='lines',
+                line=dict(width=0),
+                fill='tonexty',
+                fillcolor='rgba(255,0,0,0.1)',
+                name='95% konfidencia intervallum',
+                hoverinfo='skip'
+            ))
+            
+            # Diagram cím meghatározása az előrejelzés típusa alapján
+            if forecast_type == "havi":
+                title_suffix = "havi előrejelzés"
+            elif forecast_type == "negyedéves":
+                title_suffix = "negyedéves előrejelzés"
+            elif forecast_type == "féléves":
+                title_suffix = "féléves előrejelzés"
+            else:
+                title_suffix = "éves előrejelzés"
+            
+            fig.update_layout(
+                title=f"Fogyasztás előrejelzés - {title_suffix}",
+                xaxis_title="Dátum",
+                yaxis_title="Napi átlagolt számított fogyasztás (kW)",
+                hovermode='x unified',
+                template="plotly_white",
+                height=600
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Előrejelzési statisztikák
+            # Az adatok kW-ban vannak, de ha W-ban vannak, akkor át kell konvertálni
+            # Ellenőrizzük, hogy az értékek W-ban vannak-e (nagy számok) vagy kW-ban (kisebb számok)
+            forecast_values = forecast_df['forecast']
+            
+            # Ha az átlagos érték nagyobb mint 1, akkor valószínűleg W-ban van, konvertáljuk kW-ra
+            if forecast_values.mean() > 1:
+                forecast_values_kw = forecast_values / 1000
+            else:
+                forecast_values_kw = forecast_values
+            
+            st.write("### Előrejelzési eredmények")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Előrejelzett átlagos napi fogyasztás", f"{forecast_values_kw.mean():.4f} kW")
+            with col2:
+                st.metric("Legalacsonyabb előrejelzett napi fogyasztás", f"{forecast_values_kw.min():.4f} kW")
+            with col3:
+                st.metric("Legmagasabb előrejelzett napi fogyasztás", f"{forecast_values_kw.max():.4f} kW")
+            with col4:
+                st.metric("Előrejelzési szórás", f"{forecast_values_kw.std():.4f} kW")
+            
+            # Ár előrejelzés és költség számítás
+            # 2025-ös veszteségi energiaár használata
+            loss_prices = st.session_state.get('loss_prices', None)
+            if loss_prices:
+                try:
+                    # 2025-ös ár kinyerése
+                    price_2025_str = loss_prices.get('2025', '')
+                    loss_price_2025 = float(price_2025_str.replace(',', '.').replace(' Ft/kWh', '')) if price_2025_str else None
+                except:
+                    loss_price_2025 = None
+            else:
+                loss_price_2025 = None
+            
+            if loss_price_2025 is not None:
+                st.write("---")
+                st.write("## Ár előrejelzés és költség számítás")
                 
-                # Idősor előkészítése + külső változók
-                ts = df.set_index('datetime')['value']
-                exog = df.set_index('datetime')[['internal_temp', 'external_temp', 'internal_humidity', 'external_humidity']]
+                st.write("### Energia költség előrejelzés")
                 
-                # SARIMAX modell betanítása külső változókkal (alapértelmezett paraméterek)
-                model = SARIMAX(ts, 
-                              exog=exog,
-                              order=(1, 1, 1),  # Alapértelmezett ARIMA paraméterek
-                              seasonal_order=(0, 0, 0, 0),  # Nincs szezonális komponens
-                              enforce_stationarity=False,
-                              enforce_invertibility=False)
-                fitted_model = model.fit()
+                # Költségek számítása minden előrejelzett napra
+                # Az előrejelzés 2026-ra vonatkozik, de az 2025-ös árat használjuk
+                # A fogyasztás kW-ban van, át kell konvertálni kWh-ra (napi fogyasztás)
+                daily_loss_costs = []
                 
-                # Előrejelzés külső változókkal
-                forecast = fitted_model.forecast(steps=forecast_periods, exog=exog.iloc[-forecast_periods:])
-                conf_int = fitted_model.get_forecast(steps=forecast_periods, exog=exog.iloc[-forecast_periods:]).conf_int(alpha=1-confidence_level)
+                for consumption_kw in forecast_values_kw:
+                    # Napi energia kWh-ban: kW × 24 óra
+                    daily_energy_kwh = consumption_kw * 24
+                    # Költség: energia (kWh) × ár (Ft/kWh)
+                    daily_cost = daily_energy_kwh * loss_price_2025
+                    daily_loss_costs.append(daily_cost)
                 
-                # Előrejelzési dátumok generálása (napi szinten)
-                last_date = df['datetime'].max()
-                forecast_dates = pd.date_range(
-                    start=last_date + timedelta(days=1), 
-                    periods=forecast_periods, 
-                    freq='D'
-                )
+                # Költség statisztikák
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    total_cost = sum(daily_loss_costs)
+                    st.metric("Teljes előrejelzési időszak költség", f"{total_cost:.2f} Ft")
+                with col2:
+                    avg_daily_cost = total_cost / len(daily_loss_costs)
+                    st.metric("Átlagos napi költség", f"{avg_daily_cost:.2f} Ft")
+                with col3:
+                    if forecast_type == "havi":
+                        monthly_cost = total_cost
+                        st.metric("Havi költség", f"{monthly_cost:.2f} Ft")
+                    elif forecast_type == "negyedéves":
+                        quarterly_cost = total_cost
+                        st.metric("Negyedéves költség", f"{quarterly_cost:.2f} Ft")
+                    elif forecast_type == "féléves":
+                        semester_cost = total_cost
+                        st.metric("Féléves költség", f"{semester_cost:.2f} Ft")
+                    else:
+                        yearly_cost = total_cost
+                        st.metric("Éves költség", f"{yearly_cost:.2f} Ft")
                 
-                # Előrejelzési DataFrame
-                forecast_df = pd.DataFrame({
-                    'datetime': forecast_dates,
-                    'forecast': forecast,
-                    'lower_bound': conf_int.iloc[:, 0],
-                    'upper_bound': conf_int.iloc[:, 1]
-                })
+                # Költség vizualizáció
+                st.write("### Költség vizualizáció")
                 
-                # Alsó határ korlátozása 0-ra (fogyasztás nem lehet negatív)
-                forecast_df['lower_bound'] = forecast_df['lower_bound'].clip(lower=0)
+                fig_savings = go.Figure()
                 
-                # Session state-be mentés
-                st.session_state.forecast_df = forecast_df.copy()
-                
-                # Vizuális megjelenítés
-                fig = go.Figure()
-                
-                # Történeti napi átlagolt számított fogyasztási adatok
-                fig.add_trace(go.Scatter(
-                    x=df['datetime'],
-                    y=df['value'],
+                fig_savings.add_trace(go.Scatter(
+                    x=forecast_df['datetime'],
+                    y=daily_loss_costs,
                     mode='lines+markers',
-                    name='Történeti napi átlagolt számított fogyasztás',
-                    line=dict(color='blue', width=2),
+                    name='Veszteségi ár költség',
+                    line=dict(color='red', width=2),
                     marker=dict(size=4)
                 ))
                 
-                # Napi számított fogyasztás előrejelzés
-                fig.add_trace(go.Scatter(
-                    x=forecast_df['datetime'],
-                    y=forecast_df['forecast'],
-                    mode='lines+markers',
-                    name='Napi számított fogyasztás előrejelzés',
-                    line=dict(color='red', width=2, dash='dash'),
-                    marker=dict(size=4, symbol='diamond')
-                ))
-                
-                # Konfidencia intervallum
-                fig.add_trace(go.Scatter(
-                    x=forecast_df['datetime'],
-                    y=forecast_df['upper_bound'],
-                    mode='lines',
-                    line=dict(width=0),
-                    showlegend=False,
-                    hoverinfo='skip'
-                ))
-                
-                fig.add_trace(go.Scatter(
-                    x=forecast_df['datetime'],
-                    y=forecast_df['lower_bound'],
-                    mode='lines',
-                    line=dict(width=0),
-                    fill='tonexty',
-                    fillcolor='rgba(255,0,0,0.1)',
-                    name='95% konfidencia intervallum',
-                    hoverinfo='skip'
-                ))
-                
-                fig.update_layout(
-                    xaxis_title="Dátum és idő",
-                    yaxis_title="Napi átlagolt számított fogyasztás (W)",
+                fig_savings.update_layout(
+                    xaxis_title="Dátum",
+                    yaxis_title="Költség (Ft)",
                     hovermode='x unified',
                     template="plotly_white",
-                    height=600
+                    height=500,
+                    title="Előrejelzett energia költségek"
                 )
                 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig_savings, use_container_width=True)
                 
-                # Napi számított fogyasztás előrejelzési statisztikák
-                st.write("### Napi számított fogyasztás előrejelzési eredmények")
+            else:
+                st.warning("⚠️ Az ár előrejelzéshez először lekérni kell az E.ON árakat!")
                 
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Előrejelzett átlagos napi fogyasztás", f"{forecast.mean():.2f} W")
-                with col2:
-                    st.metric("Legalacsonyabb előrejelzett napi fogyasztás", f"{forecast.min():.2f} W")
-                with col3:
-                    st.metric("Legmagasabb előrejelzett napi fogyasztás", f"{forecast.max():.2f} W")
-                with col4:
-                    st.metric("Napi fogyasztás előrejelzési szórás", f"{forecast.std():.2f} W")
-                
-                # További napi fogyasztás-specifikus metrikák
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    # Összes előrejelzett napi energia fogyasztás
-                    total_forecast_energy = forecast.sum()
-                    st.metric("Összes előrejelzett napi energia", f"{total_forecast_energy:.2f} Wh")
-                with col2:
-                    st.write("")  # Üres oszlop
-                with col3:
-                    st.write("")  # Üres oszlop
-                with col4:
-                    st.write("")  # Üres oszlop
-                
-                # Napi számított fogyasztás előrejelzési táblázat
-                st.write("### Részletes napi számított fogyasztás előrejelzés")
-                forecast_display = forecast_df.copy()
-                forecast_display['datetime'] = forecast_display['datetime'].dt.strftime('%Y-%m-%d')
-                forecast_display = forecast_display.round(2)
-                
-                # Oszlopnevek átnevezése napi számított fogyasztás-specifikusra
-                forecast_display.columns = ['Dátum', 'Előrejelzett napi számított fogyasztás (W)', 
-                                          'Alsó határ (95%)', 'Felső határ (95%)']
-                
-                st.dataframe(forecast_display, use_container_width=True)
-                
-                # Napi számított fogyasztás összefoglaló
-                st.write("### Napi számított fogyasztás összefoglaló")
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    last_date = df['datetime'].iloc[-1].strftime('%Y-%m-%d')
-                    st.write(f"**Napi átlagolt számított fogyasztás ({last_date}):**")
-                    last_consumption = df['value'].iloc[-1]
-                    st.metric("Aktuális napi átlag", f"{last_consumption:.2f} W")
-                
-                with col2:
-                    next_date = forecast_df['datetime'].iloc[0].strftime('%Y-%m-%d')
-                    st.write(f"**Előrejelzett napi számított fogyasztás ({next_date}):**")
-                    next_forecast = forecast.iloc[0]
-                    st.metric("Következő napi előrejelzés", f"{next_forecast:.2f} W")
-                
-                # Ár előrejelzés és költség számítás
-                if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
-                    st.write("---")
-                    st.write("## Ár előrejelzés és költség számítás")
-                    
-                    # Ár előrejelzés a fogyasztás alapján
-                    st.write("### Energia költség előrejelzés")
-                    
-                    # Előrejelzett fogyasztás átlagos napi költségei
-                    avg_forecast_consumption = forecast.mean()
-                    
-                    # Költség számítása
-                    loss_cost, loss_price_num = calculate_energy_costs(
-                        avg_forecast_consumption, 
-                        st.session_state.loss_price
-                    )
-                    
-                    if loss_cost is not None:
-                        col1, col2 = st.columns(2)
-                        
-                        with col1:
-                            st.metric("Átlagos napi veszteségi költség", f"{loss_cost:.2f} Ft")
-                        with col2:
-                            monthly_cost = loss_cost * 30
-                            st.metric("Havi költség", f"{monthly_cost:.2f} Ft")
-                        
-                        # Költség vizualizáció
-                        st.write("### Költség vizualizáció")
-                        
-                        # Adatok előkészítése a vizualizációhoz
-                        forecast_dates_extended = pd.date_range(
-                            start=df['datetime'].max() + timedelta(days=1), 
-                            periods=forecast_periods, 
-                            freq='D'
-                        )
-                        
-                        # Költségek számítása minden előrejelzett napra
-                        daily_loss_costs = []
-                        
-                        for i, consumption in enumerate(forecast):
-                            loss_cost_daily, _ = calculate_energy_costs(
-                                consumption, 
-                                st.session_state.loss_price
-                            )
-                            daily_loss_costs.append(loss_cost_daily)
-                        
-                        # Költség grafikon
-                        fig_savings = go.Figure()
-                        
-                        fig_savings.add_trace(go.Scatter(
-                            x=forecast_dates_extended,
-                            y=daily_loss_costs,
-                            mode='lines+markers',
-                            name='Veszteségi ár költség',
-                            line=dict(color='red', width=2),
-                            marker=dict(size=4)
-                        ))
-                        
-                        fig_savings.update_layout(
-                            xaxis_title="Dátum",
-                            yaxis_title="Költség (Ft)",
-                            hovermode='x unified',
-                            template="plotly_white",
-                            height=500,
-                            title="Előrejelzett energia költségek"
-                        )
-                        
-                        st.plotly_chart(fig_savings, use_container_width=True)
-                        
-                        # Összesített költség
-                        total_cost = sum(daily_loss_costs)
-                        st.write("### Összesített költség")
-                        
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("Teljes előrejelzési időszak költség", f"{total_cost:.2f} Ft")
-                        with col2:
-                            avg_daily_cost = total_cost / forecast_periods
-                            st.metric("Átlagos napi költség", f"{avg_daily_cost:.2f} Ft")
-                        with col3:
-                            yearly_cost = avg_daily_cost * 365
-                            st.metric("Becsült éves költség", f"{yearly_cost:.2f} Ft")
-                        
-                    else:
-                        st.error("Nem sikerült kiszámítani a költségeket. Ellenőrizze az E.ON árak formátumát.")
-                else:
-                    st.warning("⚠️ Az ár előrejelzéshez először lekérni kell az E.ON árakat!")
-                
-            except Exception as e:
-                st.error(f"Hiba az előrejelzés generálásakor: {e}")
+        except Exception as e:
+            st.error(f"Hiba az előrejelzés megjelenítésekor: {e}")
+            import traceback
+            st.error(traceback.format_exc())
     
     
