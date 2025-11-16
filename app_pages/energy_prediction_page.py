@@ -39,7 +39,7 @@ def show_energy_prediction_page():
     
     # E.ON árak státusz megjelenítése
     if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
-        st.success("✅ Elérhető árak naprakészek")
+        st.success("✅ Árak elérhetők")
     elif 'eon_error' in st.session_state and st.session_state.eon_error:
         st.error(f"❌ E.ON árak lekérése sikertelen: {st.session_state.eon_error}")
     else:
@@ -71,7 +71,7 @@ def show_energy_prediction_page():
     
     with col1:
         table_options = {
-            "dfv_smart_db": "Dinamikus fűtésvezérlő",
+            "dfv_smart_db": "Oksovezérlő",
             "dfv_termosztat_db": "Termosztátos vezérlő"
         }
         
@@ -109,12 +109,27 @@ def show_energy_prediction_page():
         with st.spinner("Adatok betöltése folyamatban van..."):
             try:
                 # Adatok lekérdezése a közvetlen teljesítmény oszlopból + külső változók
-                from page_modules.database_queries import get_energy_prediction_data
-                query = get_energy_prediction_data(
-                    selected_table,
-                    str(start_date),
-                    str(end_date)
-                )
+                power_column = "trend_smart_p" if selected_table == "dfv_smart_db" else "trend_termosztat_p"
+                current_column = "trend_smart_i1" if selected_table == "dfv_smart_db" else "trend_termosztat_i1"
+                temp_column = "trend_smart_t" if selected_table == "dfv_smart_db" else "trend_termosztat_t"
+                humidity_column = "trend_smart_rh" if selected_table == "dfv_smart_db" else "trend_termosztat_rh"
+                
+                query = f"""
+                SELECT date, time, 
+                       {power_column} as value,
+                       {current_column} as current,
+                       {temp_column} as internal_temp,
+                       trend_kulso_homerseklet_pillanatnyi as external_temp,
+                       {humidity_column} as internal_humidity,
+                       trend_kulso_paratartalom as external_humidity
+                FROM {selected_table}
+                WHERE DATE(date) BETWEEN '{start_date}' AND '{end_date}'
+                AND {power_column} IS NOT NULL 
+                AND {current_column} IS NOT NULL
+                AND {temp_column} IS NOT NULL
+                AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
+                ORDER BY date, time
+                """
                 
                 data = execute_query(query)
                 

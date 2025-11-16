@@ -26,7 +26,8 @@ if st.sidebar.button("Energiafogyasztás és megtakarítás előrejelzés", use_
 
 st.sidebar.markdown("---")
 
-if st.session_state.page != "Főoldal":
+# Fűtőteljesítmény és beruházás input csak a Megtakarítások oldalon
+if st.session_state.page == "Megtakarítások":
     st.sidebar.write("### Fűtőteljesítmény beállítása")
     if 'heater_power' not in st.session_state:
         st.session_state.heater_power = 60.0  
@@ -43,6 +44,7 @@ if st.session_state.page != "Főoldal":
 
     st.session_state.heater_power = heater_power
     
+
     if 'investment_cost' not in st.session_state:
         st.session_state.investment_cost = 0.0
     
