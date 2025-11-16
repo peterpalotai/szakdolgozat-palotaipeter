@@ -42,6 +42,20 @@ if st.session_state.page != "Főoldal":
     )
 
     st.session_state.heater_power = heater_power
+    
+    if 'investment_cost' not in st.session_state:
+        st.session_state.investment_cost = 0.0
+    
+    investment_cost = st.sidebar.number_input(
+        "Beruházási költség (Ft):",
+        min_value=0.0,
+        value=st.session_state.investment_cost,
+        step=1000.0,
+        key="investment_cost_input",
+        help="A dinamikus fűtésvezérlő beruházási költsége forintban."
+    )
+    
+    st.session_state.investment_cost = investment_cost
 
 # E.ON árak automatikus lekérése az alkalmazás indításakor
 if 'loss_prices' not in st.session_state:

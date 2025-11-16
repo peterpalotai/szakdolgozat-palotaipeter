@@ -538,6 +538,103 @@ def show_consumption_cost_savings(start_date, end_date):
                                 use_container_width=True,
                                 hide_index=True
                             )
+                            
+                            investment_cost = st.session_state.get('investment_cost', 0.0)
+                            
+                            if investment_cost > 0 and smart_savings_cost > 0:
+                                # Megtérülési idő számítása napokban
+                                payback_days = investment_cost / smart_savings_cost
+                                payback_months = payback_days / 30
+                                payback_years = payback_days / 365
+                                
+                                # Megtérülési dátum számítása
+                                from datetime import datetime, timedelta
+                                payback_date = datetime.now() + timedelta(days=int(payback_days))
+                                
+                                # Metrikák megjelenítése
+                                col1, col2, col3 = st.columns(3)
+                                with col1:
+                                    st.metric("Megtérülési idő (nap)", f"{payback_days:.1f}")
+                                with col2:
+                                    st.metric("Megtérülési idő (hónap)", f"{payback_months:.1f}")
+                                with col3:
+                                    st.metric("Megtérülési idő (év)", f"{payback_years:.2f}")
+                                
+                                st.write(f"**Becsült megtérülési dátum:** {payback_date.strftime('%Y-%m-%d')}")
+                                
+                                # Vonaldiagram: kumulatív megtakarítás vs beruházás
+                                st.write("### Megtérülési görbe")
+                                
+                                # Adatok előkészítése a diagramhoz (max 5 év vagy amíg megtérül)
+                                max_days = min(int(payback_days * 1.2), 365 * 5)  # 20% túllépés vagy max 5 év
+                                days_range = list(range(0, max_days + 1, 7))  # Hetente egy pont
+                                
+                                cumulative_savings = [smart_savings_cost * day for day in days_range]
+                                investment_line = [investment_cost] * len(days_range)
+                                
+                                # Hónapok számítása a diagramhoz
+                                months_range = [day / 30 for day in days_range]
+                                
+                                fig_payback = go.Figure()
+                                
+                                # Kumulatív megtakarítás vonal
+                                fig_payback.add_trace(go.Scatter(
+                                    x=months_range,
+                                    y=cumulative_savings,
+                                    mode='lines',
+                                    name='Kumulatív megtakarítás',
+                                    line=dict(color='#00CC96', width=3),
+                                    hovertemplate='%{x:.1f} hónap<br>%{y:,.0f} Ft<extra></extra>'
+                                ))
+                                
+                                # Beruházás vonal
+                                fig_payback.add_trace(go.Scatter(
+                                    x=months_range,
+                                    y=investment_line,
+                                    mode='lines',
+                                    name='Beruházási költség',
+                                    line=dict(color='red', width=2, dash='dash'),
+                                    hovertemplate='%{x:.1f} hónap<br>%{y:,.0f} Ft<extra></extra>'
+                                ))
+                                
+                                # Megtérülési pont jelölése
+                                if payback_months <= max(days_range) / 30:
+                                    fig_payback.add_trace(go.Scatter(
+                                        x=[payback_months],
+                                        y=[investment_cost],
+                                        mode='markers',
+                                        name='Megtérülési pont',
+                                        marker=dict(
+                                            color='green',
+                                            size=15,
+                                            symbol='diamond',
+                                            line=dict(width=2, color='darkgreen')
+                                        ),
+                                        hovertemplate=f'Megtérülés: {payback_months:.1f} hónap<br>{investment_cost:,.0f} Ft<extra></extra>'
+                                    ))
+                                
+                                fig_payback.update_layout(
+                                    title="Beruházás megtérülési görbe",
+                                    xaxis_title="Idő (hónap)",
+                                    yaxis_title="Összeg (Ft)",
+                                    hovermode='x unified',
+                                    template="plotly_white",
+                                    height=500,
+                                    legend=dict(
+                                        yanchor="top",
+                                        y=0.99,
+                                        xanchor="left",
+                                        x=0.01
+                                    )
+                                )
+                                
+                                st.plotly_chart(fig_payback, use_container_width=True)
+                                
+                            elif investment_cost > 0 and smart_savings_cost <= 0:
+                                st.warning("A dinamikus fűtésvezérlő jelenleg nem takarít meg pénzt a beépített fűtőtesthez képest, így a beruházás nem térül meg.")
+                            elif investment_cost == 0:
+                                st.info("Kérjük, adjon meg egy beruházási költséget a sidebar-ban a megtérülési számítás megjelenítéséhez.")
+                            
                         else:
                             st.error("Nem sikerült kiszámítani a költségeket.")
                     
