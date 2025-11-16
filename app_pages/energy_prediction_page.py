@@ -39,7 +39,7 @@ def show_energy_prediction_page():
     
     # E.ON árak státusz megjelenítése
     if 'loss_price' in st.session_state and st.session_state.loss_price is not None:
-        st.success("✅ Árak elérhetők")
+        st.success("✅ Elérhető árak naprakészek")
     elif 'eon_error' in st.session_state and st.session_state.eon_error:
         st.error(f"❌ E.ON árak lekérése sikertelen: {st.session_state.eon_error}")
     else:
