@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import sys
 import numpy as np
@@ -548,7 +548,6 @@ def show_consumption_cost_savings(start_date, end_date):
                                 payback_years = payback_days / 365
                                 
                                 # Megtérülési dátum számítása
-                                from datetime import datetime, timedelta
                                 payback_date = datetime.now() + timedelta(days=int(payback_days))
                                 
                                 # Metrikák megjelenítése
@@ -630,6 +629,127 @@ def show_consumption_cost_savings(start_date, end_date):
                                 
                                 st.plotly_chart(fig_payback, use_container_width=True)
                                 
+                                
+                                # Ár változások beolvasása a sidebar-ból
+                                sensitivity_input = st.session_state.get('sensitivity_price_changes', '-50,-20,-10,0,10,20,50')
+                                
+                                # Ár változások feldolgozása
+                                try:
+                                    price_changes = [float(x.strip()) for x in sensitivity_input.split(',') if x.strip()]
+                                    price_changes = sorted(price_changes)
+                                    
+                                    if len(price_changes) == 0:
+                                        st.warning("Kérjük, adjon meg legalább egy ár változást a sidebar-ban!")
+                                        price_changes = [0]  # Alapértelmezett: csak 0%
+                                except Exception as e:
+                                    st.warning(f"Érvénytelen formátum az ár változásokhoz: {e}. Kérjük, ellenőrizze a sidebar-ban megadott értékeket!")
+                                    price_changes = [0]  # Alapértelmezett: csak 0%
+                                
+                                # Alap napi megtakarítás (jelenlegi árral)
+                                base_daily_savings = smart_savings_cost
+                                
+                                # Érzékenységvizsgálat számítások
+                                sensitivity_results = []
+                                
+                                for price_change_pct in price_changes:
+                                    # Új napi megtakarítás számítása (ár változás arányosan befolyásolja)
+                                    new_daily_savings = base_daily_savings * (1 + price_change_pct / 100)
+                                    
+                                    # Megtérülési idő számítása
+                                    if new_daily_savings > 0:
+                                        new_payback_days = investment_cost / new_daily_savings
+                                        new_payback_months = new_payback_days / 30
+                                        new_payback_years = new_payback_days / 365
+                                        
+                                        # Megtérülési dátum
+                                        new_payback_date = datetime.now() + timedelta(days=int(new_payback_days))
+                                        
+                                        # Változás az alapértékhez képest
+                                        base_payback_days = payback_days
+                                        change_in_days = new_payback_days - base_payback_days
+                                        change_in_months = change_in_days / 30
+                                        change_pct = (change_in_days / base_payback_days * 100) if base_payback_days > 0 else 0
+                                        
+                                        sensitivity_results.append({
+                                            'Ár változás (%)': price_change_pct,
+                                            'Napi megtakarítás (Ft)': new_daily_savings,
+                                            'Megtérülési idő (nap)': new_payback_days,
+                                            'Megtérülési idő (hónap)': new_payback_months,
+                                            'Megtérülési idő (év)': new_payback_years,
+                                            'Megtérülési dátum': new_payback_date.strftime('%Y-%m-%d'),
+                                            'Változás (nap)': change_in_days,
+                                            'Változás (hónap)': change_in_months,
+                                            'Változás (%)': change_pct
+                                        })
+                                    else:
+                                        sensitivity_results.append({
+                                            'Ár változás (%)': price_change_pct,
+                                            'Napi megtakarítás (Ft)': 0,
+                                            'Megtérülési idő (nap)': float('inf'),
+                                            'Megtérülési idő (hónap)': float('inf'),
+                                            'Megtérülési idő (év)': float('inf'),
+                                            'Megtérülési dátum': 'N/A',
+                                            'Változás (nap)': float('inf'),
+                                            'Változás (hónap)': float('inf'),
+                                            'Változás (%)': float('inf')
+                                        })
+                                
+                                # Érzékenységvizsgálat diagram
+                                st.write("#### Érzékenységvizsgálat diagram")
+                                
+                                # Szűrés végtelen értékekre
+                                valid_results = [r for r in sensitivity_results if r['Megtérülési idő (hónap)'] != float('inf')]
+                                
+                                if valid_results:
+                                    price_changes_valid = [r['Ár változás (%)'] for r in valid_results]
+                                    payback_months_valid = [r['Megtérülési idő (hónap)'] for r in valid_results]
+                                    
+                                    fig_sensitivity = go.Figure()
+                                    
+                                    # Megtérülési idő vonal
+                                    fig_sensitivity.add_trace(go.Scatter(
+                                        x=price_changes_valid,
+                                        y=payback_months_valid,
+                                        mode='lines+markers',
+                                        name='Megtérülési idő',
+                                        line=dict(color='#1f77b4', width=3),
+                                        marker=dict(size=8, color='#1f77b4'),
+                                        hovertemplate='Ár változás: %{x:.1f}%<br>Megtérülési idő: %{y:.2f} hónap<extra></extra>'
+                                    ))
+                                    
+                                    # Alapértelmezett érték jelölése
+                                    fig_sensitivity.add_trace(go.Scatter(
+                                        x=[0],
+                                        y=[payback_months],
+                                        mode='markers',
+                                        name='Alapértelmezett (jelenlegi ár)',
+                                        marker=dict(
+                                            color='green',
+                                            size=15,
+                                            symbol='diamond',
+                                            line=dict(width=2, color='darkgreen')
+                                        ),
+                                        hovertemplate=f'Alapértelmezett ár<br>Megtérülési idő: {payback_months:.2f} hónap<extra></extra>'
+                                    ))
+                                    
+                                    fig_sensitivity.update_layout(
+                                        title="Érzékenységvizsgálat: Energiaár változások hatása a megtérülési időre",
+                                        xaxis_title="Ár változás (%)",
+                                        yaxis_title="Megtérülési idő (hónap)",
+                                        hovermode='x unified',
+                                        template="plotly_white",
+                                        height=500,
+                                        legend=dict(
+                                            yanchor="top",
+                                            y=0.99,
+                                            xanchor="left",
+                                            x=0.01
+                                        )
+                                    )
+                                    
+                                    st.plotly_chart(fig_sensitivity, use_container_width=True)
+                                    
+            
                             elif investment_cost > 0 and smart_savings_cost <= 0:
                                 st.warning("A dinamikus fűtésvezérlő jelenleg nem takarít meg pénzt a beépített fűtőtesthez képest, így a beruházás nem térül meg.")
                             elif investment_cost == 0:

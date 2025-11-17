@@ -58,6 +58,28 @@ if st.session_state.page == "Megtakarítások":
     )
     
     st.session_state.investment_cost = investment_cost
+    
+    # Érzékenységvizsgálat ár változások input
+    st.sidebar.write("### Érzékenységvizsgálat beállítások")
+    
+    if 'sensitivity_price_changes' not in st.session_state:
+        st.session_state.sensitivity_price_changes = "-50,-20,-10,0,10,20,50"
+    
+    # Input letiltva, ha nincs beruházási költség
+    is_disabled = investment_cost <= 0
+    
+    sensitivity_price_changes = st.sidebar.text_input(
+        "Ár változások (%):",
+        value=st.session_state.sensitivity_price_changes,
+        help="Vesszővel elválasztott értékek (pl: -50,-20,-10,0,10,20,50). Az energiaár változásait százalékban adja meg.",
+        key="sensitivity_price_changes_input",
+        disabled=is_disabled
+    )
+    
+    if not is_disabled:
+        st.session_state.sensitivity_price_changes = sensitivity_price_changes
+    else:
+        st.sidebar.info("⚠️ Adja meg a beruházási költséget az érzékenységvizsgálat használatához.")
 
 # E.ON árak automatikus lekérése az alkalmazás indításakor
 if 'loss_prices' not in st.session_state:
