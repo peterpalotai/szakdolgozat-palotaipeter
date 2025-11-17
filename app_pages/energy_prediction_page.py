@@ -272,11 +272,7 @@ def show_energy_prediction_page():
                     
                     selected_quarter = st.session_state.selected_quarter
                     
-                    # Ugyanazon negyedév keresése az előző évekből - hónap számok alapján
-                    # 1. negyedév = január(1), február(2), március(3)
-                    # 2. negyedév = április(4), május(5), június(6)
-                    # 3. negyedév = július(7), augusztus(8), szeptember(9)
-                    # 4. negyedév = október(10), november(11), december(12)
+    
                     if selected_quarter == 1:
                         month_numbers = [1, 2, 3]  # Január, február, március
                     elif selected_quarter == 2:
@@ -383,6 +379,63 @@ def show_energy_prediction_page():
                     # Rendezés dátum szerint
                     df = df.sort_values('datetime').reset_index(drop=True)
                     
+                    # Május esetén: éves átlag számítása hiányzó napokhoz
+                    # Ellenőrizzük, hogy a lekérdezés tartalmaz-e májusi adatokat
+                    has_may_data = False
+                    if forecast_type == "havi" and 'selected_month' in st.session_state and st.session_state.selected_month == 5:
+                        has_may_data = True
+                    elif forecast_type == "negyedéves" and 'selected_quarter' in st.session_state and st.session_state.selected_quarter == 2:
+                        # 2. negyedév tartalmazza a májust (április, május, június)
+                        has_may_data = True
+                    elif forecast_type == "féléves" and 'selected_semester' in st.session_state and st.session_state.selected_semester == 1:
+                        # 1. félév tartalmazza a májust (január-június)
+                        has_may_data = True
+                    elif forecast_type == "éves":
+                        # Éves előrejelzés mindig tartalmazza a májust
+                        has_may_data = True
+                    
+                    yearly_avg_value = None
+                    yearly_avg_internal_temp = None
+                    yearly_avg_external_temp = None
+                    yearly_avg_internal_humidity = None
+                    yearly_avg_external_humidity = None
+                    
+                    if has_may_data:
+                        # Egész éves adatok lekérdezése az átlag számításához
+                        yearly_query = f"""
+                        SELECT date, time, 
+                               {power_column} as value,
+                               {current_column} as current,
+                               {temp_column} as internal_temp,
+                               trend_kulso_homerseklet_pillanatnyi as external_temp,
+                               {humidity_column} as internal_humidity,
+                               trend_kulso_paratartalom as external_humidity
+                        FROM {selected_table}
+                        WHERE {power_column} IS NOT NULL 
+                        AND {current_column} IS NOT NULL
+                        AND {temp_column} IS NOT NULL
+                        AND trend_kulso_homerseklet_pillanatnyi IS NOT NULL
+                        ORDER BY date, time
+                        """
+                        yearly_data = execute_query(yearly_query)
+                        
+                        if yearly_data and len(yearly_data) > 0:
+                            yearly_df = pd.DataFrame(yearly_data, columns=['date', 'time', 'value', 'current', 
+                                                                          'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity'])
+                            yearly_df['value'] = pd.to_numeric(yearly_df['value'], errors='coerce')
+                            yearly_df['internal_temp'] = pd.to_numeric(yearly_df['internal_temp'], errors='coerce')
+                            yearly_df['external_temp'] = pd.to_numeric(yearly_df['external_temp'], errors='coerce')
+                            yearly_df['internal_humidity'] = pd.to_numeric(yearly_df['internal_humidity'], errors='coerce')
+                            yearly_df['external_humidity'] = pd.to_numeric(yearly_df['external_humidity'], errors='coerce')
+                            yearly_df = yearly_df.dropna(subset=['value'])
+                            
+                            # Éves átlagok számítása
+                            yearly_avg_value = yearly_df['value'].mean()
+                            yearly_avg_internal_temp = yearly_df['internal_temp'].mean()
+                            yearly_avg_external_temp = yearly_df['external_temp'].mean()
+                            yearly_avg_internal_humidity = yearly_df['internal_humidity'].mean()
+                            yearly_avg_external_humidity = yearly_df['external_humidity'].mean()
+                    
                     # Napi átlagolás az ARIMA modellhez
                     df['date'] = df['datetime'].dt.date
                     daily_df = df.groupby('date').agg({
@@ -396,8 +449,64 @@ def show_energy_prediction_page():
                     daily_df = daily_df.drop('date', axis=1)
                     daily_df = daily_df.sort_values('datetime').reset_index(drop=True)
                     
-                    # Hiányzó értékek eltávolítása a napi átlagolás után is
-                    daily_df = daily_df.dropna(subset=['value', 'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity'])
+                    # Május esetén: hiányzó napok kitöltése éves átlaggal
+                    if has_may_data and yearly_avg_value is not None:
+                        # Május összes napjának listája
+                        may_start = datetime(2025, 5, 1)
+                        may_end = datetime(2025, 5, 31)
+                        all_may_dates = pd.date_range(start=may_start, end=may_end, freq='D')
+                        
+                        # Ellenőrizzük, hogy a daily_df tartalmaz-e májusi dátumokat
+                        may_dates_in_data = daily_df[daily_df['datetime'].dt.month == 5]
+                        
+                        if len(may_dates_in_data) > 0 or forecast_type == "havi":
+                            # Teljes májusi DataFrame létrehozása
+                            complete_may_df = pd.DataFrame({
+                                'datetime': all_may_dates
+                            })
+                            
+                            # Meglévő májusi adatok kinyerése
+                            may_data_from_daily = daily_df[daily_df['datetime'].dt.month == 5][['datetime', 'value', 'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity']]
+                            
+                            # Meglévő adatok egyesítése
+                            complete_may_df = complete_may_df.merge(
+                                may_data_from_daily,
+                                on='datetime',
+                                how='left'
+                            )
+                            
+                            # Hiányzó napok számának meghatározása kitöltés előtt
+                            missing_days_count = complete_may_df['value'].isna().sum()
+                            
+                            # Hiányzó értékek kitöltése éves átlaggal
+                            complete_may_df['value'] = complete_may_df['value'].fillna(yearly_avg_value)
+                            complete_may_df['internal_temp'] = complete_may_df['internal_temp'].fillna(yearly_avg_internal_temp)
+                            complete_may_df['external_temp'] = complete_may_df['external_temp'].fillna(yearly_avg_external_temp)
+                            complete_may_df['internal_humidity'] = complete_may_df['internal_humidity'].fillna(yearly_avg_internal_humidity)
+                            complete_may_df['external_humidity'] = complete_may_df['external_humidity'].fillna(yearly_avg_external_humidity)
+                            
+                            # Rendezés
+                            complete_may_df = complete_may_df.sort_values('datetime').reset_index(drop=True)
+                            
+                            # A teljes májusi DataFrame egyesítése a többi adattal
+                            # Először eltávolítjuk a májusi napokat a daily_df-ből
+                            daily_df_without_may = daily_df[daily_df['datetime'].dt.month != 5]
+                            
+                            # Összevonjuk a teljes májusi adatokat a többi adattal
+                            daily_df = pd.concat([daily_df_without_may, complete_may_df], ignore_index=True)
+                            daily_df = daily_df.sort_values('datetime').reset_index(drop=True)
+                            
+                            # Info üzenet
+                            if missing_days_count > 0:
+                                st.info(f"ℹ️ Májusi adatok: {len(complete_may_df)} nap (összesen), ebből {missing_days_count} nap kitöltve éves átlaggal ({yearly_avg_value:.4f} kW).")
+                            else:
+                                st.info(f"ℹ️ Májusi adatok: {len(complete_may_df)} nap, minden nap rendelkezik mért adattal.")
+                        else:
+                            # Ha nincs májusi adat, akkor csak a hiányzó értékeket távolítjuk el
+                            daily_df = daily_df.dropna(subset=['value', 'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity'])
+                    else:
+                        # Minden más esetben: hiányzó értékek eltávolítása
+                        daily_df = daily_df.dropna(subset=['value', 'internal_temp', 'external_temp', 'internal_humidity', 'external_humidity'])
                     
                     # Ellenőrzés: van-e elég adat az ARIMA modell betanításához
                     if len(daily_df) < 10:
@@ -466,6 +575,13 @@ def show_energy_prediction_page():
                     st.session_state.forecast_df = forecast_df.copy()
                     st.session_state.forecast_type = forecast_type
                     st.session_state.forecast_period = selected_period
+                    
+                    # Májusi adatok mentése, ha májusi adatok vannak a lekérdezésben
+                    if has_may_data:
+                        # Májusi napi átlagolt adatok kinyerése és mentése
+                        may_data_for_display = daily_df[daily_df['datetime'].dt.month == 5].copy()
+                        if len(may_data_for_display) > 0:
+                            st.session_state.may_consumption_data = may_data_for_display
                     
                     st.success(f"✅ Előrejelzés sikeresen generálva {forecast_days} napra!")
                     
@@ -563,18 +679,7 @@ def show_energy_prediction_page():
                 forecast_values_kw = forecast_values / 1000
             else:
                 forecast_values_kw = forecast_values
-            
-            st.write("### Előrejelzési eredmények")
-            
-            col1, col2, col3, col4 = st.columns(4)
-            with col1:
-                st.metric("Előrejelzett átlagos napi fogyasztás", f"{forecast_values_kw.mean():.4f} kW")
-            with col2:
-                st.metric("Legalacsonyabb előrejelzett napi fogyasztás", f"{forecast_values_kw.min():.4f} kW")
-            with col3:
-                st.metric("Legmagasabb előrejelzett napi fogyasztás", f"{forecast_values_kw.max():.4f} kW")
-            with col4:
-                st.metric("Előrejelzési szórás", f"{forecast_values_kw.std():.4f} kW")
+
             
             # Ár előrejelzés és költség számítás
             # 2025-ös veszteségi energiaár használata
@@ -593,11 +698,6 @@ def show_energy_prediction_page():
                 st.write("---")
                 st.write("## Ár előrejelzés és költség számítás")
                 
-                st.write("### Energia költség előrejelzés")
-                
-                # Költségek számítása minden előrejelzett napra
-                # Az előrejelzés 2026-ra vonatkozik, de az 2025-ös árat használjuk
-                # A fogyasztás kW-ban van, át kell konvertálni kWh-ra (napi fogyasztás)
                 daily_loss_costs = []
                 
                 for consumption_kw in forecast_values_kw:
