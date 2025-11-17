@@ -20,7 +20,8 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
     """
     
     # Fix CO2 intenzitás (g CO2/kWh)
-    co2_intensity = 256.206
+    # 0.19 kg/kWh = 190 g CO2/kWh
+    co2_intensity = 190.0
     
     # Dátumok számítása - lekérdezzük az első és utolsó adatbázis napját (összes nap)
     try:
