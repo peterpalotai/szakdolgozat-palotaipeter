@@ -6,7 +6,7 @@
 
 def get_smart_controller_data(start_date: str, end_date: str) -> str:
     """
-    Okosvezérlő adatainak lekérdezése.
+    Dinamikus fűtésvezérlő adatainak lekérdezése.
     
     Args:
         start_date: Kezdő dátum (YYYY-MM-DD formátum)

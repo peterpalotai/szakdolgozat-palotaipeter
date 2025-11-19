@@ -12,9 +12,8 @@ import time
 def scrape_eon_prices():
     
     
-    # 2024-es ár (tr[18]) - eggyel feljebb
+  
     xpath_2024 = "/html/body/eon-ui-page-wrapper/main/div/eon-ui-section/eon-ui-grid-control/eon-ui-grid-control-column/eon-ui-grid-control/eon-ui-grid-control-column[1]/div[4]/table/tbody/tr[18]/td[3]"
-    # 2025-ös ár (tr[19]) - jelenlegi
     xpath_2025 = "/html/body/eon-ui-page-wrapper/main/div/eon-ui-section/eon-ui-grid-control/eon-ui-grid-control-column/eon-ui-grid-control/eon-ui-grid-control-column[1]/div[4]/table/tbody/tr[19]/td[3]"
     
     chrome_options = Options()

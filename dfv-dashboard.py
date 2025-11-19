@@ -30,16 +30,16 @@ st.sidebar.markdown("---")
 if st.session_state.page == "Megtakarítások":
     st.sidebar.write("### Fűtőteljesítmény beállítása")
     if 'heater_power' not in st.session_state:
-        st.session_state.heater_power = 900.0  
+        st.session_state.heater_power = 180.0  
 
     heater_power = st.sidebar.number_input(
         "Beépített fűtőteljesítmény (W):",
-        min_value=300.0,
-        max_value=1500.0,
+        min_value=60.0,
+        max_value=300.0,
         value=st.session_state.heater_power,
         step=50.0,
         key="heater_power_input",
-        help="A fűtőteljesítmény 300 és 1500 W között mozoghat."
+        help="A fűtőteljesítmény 60 és 300 W között mozoghat."
     )
 
     st.session_state.heater_power = heater_power

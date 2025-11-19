@@ -67,7 +67,7 @@ def show_energy_prediction_page():
 
     st.write("## Adatok kiválasztása")
     
-    # Csak a dinamikus fűtésvezérlő (okosvezérlő) használata
+    # Csak a dinamikus fűtésvezérlő használata
     selected_table = "dfv_smart_db"
     
 
