@@ -75,16 +75,16 @@ def show_home_page():
     
     with col1:
         if selected_table == "dfv_smart_db":
-            if st.button("Oksovezérlő", use_container_width=True, type="primary"):
+            if st.button("Dinamikus fűtésvezérlő", use_container_width=True, type="primary"):
                 st.session_state.prev_selected_table = st.session_state.selected_table
                 st.session_state.selected_table = "dfv_smart_db"
-                st.session_state.table_display_name = "Oksovezérlő"
+                st.session_state.table_display_name = "Dinamikus fűtésvezérlő"
                 st.rerun()
         else:
-            if st.button("Oksovezérlő", use_container_width=True, type="secondary"):
+            if st.button("Dinamikus fűtésvezérlő", use_container_width=True, type="secondary"):
                 st.session_state.prev_selected_table = st.session_state.selected_table
                 st.session_state.selected_table = "dfv_smart_db"
-                st.session_state.table_display_name = "Oksovezérlő"
+                st.session_state.table_display_name = "Dinamikus fűtésvezérlő"
                 st.rerun()
     
     with col2:

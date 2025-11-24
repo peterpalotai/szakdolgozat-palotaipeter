@@ -127,10 +127,10 @@ def show_consumption_cost_savings(start_date, end_date):
                         else:
                             thermostat_avg = 0
                         
-                        # Beépített fűtőtest: egyszerű számítás
+                        # Folyamatos működés esetén: egyszerű számítás
                         heater_usage_hours = 24  # óra
                         heater_daily_energy = (heater_power * heater_usage_hours) / 1000.0  # kWh
-                        # Beépített fűtőtest konstans teljesítménye (W)
+                        # Folyamatos működés esetén konstans teljesítménye (W)
                         heater_avg = heater_power
                         
                         # Veszteségi energiaár költségek számítása dátum alapján
@@ -157,7 +157,7 @@ def show_consumption_cost_savings(start_date, end_date):
                             days_2025_total = (smart_daily_energy_df['year'] == 2025).sum()
                             total_days = len(smart_daily_energy_df)
                             
-                            # Beépített fűtőtest költsége - minden napra külön számolva dátum alapján
+                            # Folyamatos működés esetén költsége - minden napra külön számolva dátum alapján
                             smart_daily_energy_df['heater_daily_cost_ft'] = smart_daily_energy_df.apply(
                                 lambda row: heater_daily_energy * (loss_price_2024 if row['year'] == 2024 else loss_price_2025),
                                 axis=1
@@ -254,7 +254,7 @@ def show_consumption_cost_savings(start_date, end_date):
                         if (smart_loss_cost is not None and thermostat_loss_cost is not None and heater_loss_cost is not None 
                             and smart_savings_cost is not None and thermostat_savings_cost is not None
                             and smart_savings_energy is not None and thermostat_savings_energy is not None):
-                            # Számított értékek - Dinamikus fűtésvezérlő vs Beépített fűtőtest
+                            # Számított értékek - Dinamikus fűtésvezérlő vs Folyamatos működés esetén
                             # Energia különbség kWh-ban
                             consumption_diff_smart_heater = smart_daily_energy - heater_daily_energy
                             # Megtakarítás pozitív értékben (ha negatív, akkor nincs megtakarítás)
@@ -262,7 +262,7 @@ def show_consumption_cost_savings(start_date, end_date):
                             monthly_savings_smart = smart_savings_cost * 30
                             yearly_savings_smart = smart_savings_cost * 365
                             
-                            # Számított értékek - Termosztátos vezérlő vs Beépített fűtőtest
+                            # Számított értékek - Termosztátos vezérlő vs Folyamatos működés esetén
                             # Energia különbség kWh-ban
                             consumption_diff_thermo_heater = thermostat_daily_energy - heater_daily_energy
                             # Megtakarítás pozitív értékben (ha negatív, akkor nincs megtakarítás)
@@ -320,9 +320,9 @@ def show_consumption_cost_savings(start_date, end_date):
                                 }
                             )
                             
-                            # Beépített fűtőtest adatok megjelenítése a táblázat alatt
+                            # Folyamatos működés esetén adatok megjelenítése a táblázat alatt
                             st.write("")
-                            st.write("**Beépített fűtőtest:**")
+                            st.write("**Folyamatos működés esetén:**")
                             
                             # 2024-es és 2025-ös napi költségek számítása
                             if 'year' in smart_daily_energy_df.columns:
@@ -405,7 +405,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                 ])
                                 
                                 heater_selected = st.checkbox(
-                                    "Beépített fűtőtest", 
+                                    "Folyamatos működés esetén", 
                                     key="savings_heater_checkbox",
                                     disabled=(current_count_after_thermo == 2 and not current_heater)
                                 )
@@ -439,8 +439,8 @@ def show_consumption_cost_savings(start_date, end_date):
                                         consumption_savings = 0
                                 
                                 elif smart_selected and heater_selected:
-                                    # Dinamikus vs Beépített
-                                    comparison_title = "Dinamikus fűtésvezérlő vs Beépített fűtőtest"
+                                    # Dinamikus vs Folyamatos
+                                    comparison_title = "Dinamikus fűtésvezérlő vs Folyamatos működés esetén"
                                     energy_savings_energy = smart_savings_energy
                                     energy_savings_cost = smart_savings_cost
                                     note_text = None
@@ -450,8 +450,8 @@ def show_consumption_cost_savings(start_date, end_date):
                                         consumption_savings = 0
                                 
                                 elif thermo_selected and heater_selected:
-                                    # Termosztátos vs Beépített
-                                    comparison_title = "Termosztátos vezérlő vs Beépített fűtőtest"
+                                    # Termosztátos vs Folyamatos
+                                    comparison_title = "Termosztátos vezérlő vs Folyamatos működés esetén"
                                     energy_savings_energy = thermostat_savings_energy
                                     energy_savings_cost = thermostat_savings_cost
                                     note_text = None
@@ -506,8 +506,8 @@ def show_consumption_cost_savings(start_date, end_date):
                             
                             summary_data = {
                                 'Összehasonlítás': [
-                                    'Dinamikus fűtésvezérlő vs Beépített fűtőtest',
-                                    'Termosztátos vezérlő vs Beépített fűtőtest',
+                                    'Dinamikus fűtésvezérlő vs Folyamatos működés esetén',
+                                    'Termosztátos vezérlő vs Folyamatos működés esetén',
                                     'Dinamikus fűtésvezérlő vs Termosztátos vezérlő'
                                 ],
                                 'Fogyasztás különbség (kWh)': [
@@ -751,7 +751,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                     
             
                             elif investment_cost > 0 and smart_savings_cost <= 0:
-                                st.warning("A dinamikus fűtésvezérlő jelenleg nem takarít meg pénzt a beépített fűtőtesthez képest, így a beruházás nem térül meg.")
+                                st.warning("A dinamikus fűtésvezérlő jelenleg nem takarít meg pénzt a folyamatos működés eseténhez képest, így a beruházás nem térül meg.")
                             elif investment_cost == 0:
                                 st.info("Kérjük, adjon meg egy beruházási költséget a sidebar-ban a megtérülési számítás megjelenítéséhez.")
                             

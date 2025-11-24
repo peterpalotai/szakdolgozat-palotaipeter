@@ -34,8 +34,8 @@ if st.session_state.page == "Megtakarítások":
 
     heater_power = st.sidebar.number_input(
         "Beépített fűtőteljesítmény (W):",
-        min_value=60.0,
-        max_value=300.0,
+        min_value=30.0,
+        max_value=120.0,
         value=st.session_state.heater_power,
         step=50.0,
         key="heater_power_input",
