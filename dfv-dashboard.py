@@ -30,7 +30,7 @@ st.sidebar.markdown("---")
 if st.session_state.page == "Megtakarítások":
     st.sidebar.write("### Fűtőteljesítmény beállítása")
     if 'heater_power' not in st.session_state:
-        st.session_state.heater_power = 180.0  
+        st.session_state.heater_power = 60.0  
 
     heater_power = st.sidebar.number_input(
         "Beépített fűtőteljesítmény (W):",
@@ -39,7 +39,7 @@ if st.session_state.page == "Megtakarítások":
         value=st.session_state.heater_power,
         step=50.0,
         key="heater_power_input",
-        help="A fűtőteljesítmény 60 és 300 W között mozoghat."
+        help="A fűtőteljesítmény 30 és 120 W között mozoghat."
     )
 
     st.session_state.heater_power = heater_power
@@ -63,7 +63,7 @@ if st.session_state.page == "Megtakarítások":
     st.sidebar.write("### Érzékenységvizsgálat beállítások")
     
     if 'sensitivity_price_changes' not in st.session_state:
-        st.session_state.sensitivity_price_changes = "-50,-20,-10,0,10,20,50"
+        st.session_state.sensitivity_price_changes = "-75,-50,-20,-10,0,10,20,50,75,100,200,300"
     
     # Input letiltva, ha nincs beruházási költség
     is_disabled = investment_cost <= 0
@@ -71,7 +71,7 @@ if st.session_state.page == "Megtakarítások":
     sensitivity_price_changes = st.sidebar.text_input(
         "Ár változások (%):",
         value=st.session_state.sensitivity_price_changes,
-        help="Vesszővel elválasztott értékek (pl: -50,-20,-10,0,10,20,50). Az energiaár változásait százalékban adja meg.",
+        help="Vesszővel elválasztott értékek (pl: -75,-50,-20,-10,0,10,20,50,75,100,200,300). Az energiaár változásait százalékban adja meg.",
         key="sensitivity_price_changes_input",
         disabled=is_disabled
     )
@@ -90,7 +90,7 @@ if 'loss_prices' not in st.session_state:
         st.session_state.loss_prices = None
         st.session_state.eon_error = error
     else:
-        st.session_state.loss_prices = loss_prices  # Dictionary: {'2024': '95,59 Ft/kWh', '2025': '51,37 Ft/kWh'}
+        st.session_state.loss_prices = loss_prices 
         st.session_state.eon_error = None
         
         if loss_prices and '2025' in loss_prices:

@@ -76,23 +76,25 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
         power_data = execute_query(power_query)
         
         if power_data:
-            # DataFrame létrehozása teljesítményadatokkal
-            power_df = pd.DataFrame(power_data, columns=['Dátum', 'Idő', 'Teljesítmény (W)'])
+            # DataFrame létrehozása teljesítményadatokkal (kW-ban jönnek be az adatbázisból)
+            power_df = pd.DataFrame(power_data, columns=['Dátum', 'Idő', 'Teljesítmény (kW)'])
             power_df['Dátum'] = pd.to_datetime(power_df['Dátum']).dt.date
             power_df['Dátum_Idő'] = pd.to_datetime(power_df['Dátum'].astype(str) + ' ' + power_df['Idő'].astype(str))
             
-            power_df['Teljesítmény (W)'] = pd.to_numeric(power_df['Teljesítmény (W)'], errors='coerce').astype(float) * 1000.0
+            # Az adatok már kW-ban vannak, nem kell átváltani
+            power_df['Teljesítmény (kW)'] = pd.to_numeric(power_df['Teljesítmény (kW)'], errors='coerce').astype(float)
             
             # Ha van fűtőteljesítmény megadva, arányosítjuk az adatbázis teljesítményét
+            # A fűtőteljesítmény W-ban van, az adatbázis teljesítmény kW-ban, ezért osztjuk 1000-el
             if heater_power is not None and heater_power > 0:
-                # Arány számítása: adatbázis_teljesítmény / fűtőteljesítmény
-                power_df['Arány'] = power_df['Teljesítmény (W)'] / heater_power
-                # Arányosított teljesítmény = fűtőteljesítmény * arány (ami ugyanaz, mint az adatbázis teljesítmény)
-                # De a CO2 számításnál az arányt használjuk
-                power_df['Arányosított_teljesítmény'] = heater_power * power_df['Arány']
+                heater_power_kw = heater_power / 1000.0  # W -> kW konverzió
+                # Arány számítása: adatbázis_teljesítmény (kW) / fűtőteljesítmény (kW)
+                power_df['Arány'] = power_df['Teljesítmény (kW)'] / heater_power_kw
+                # Arányosított teljesítmény = fűtőteljesítmény (kW) * arány
+                power_df['Arányosított_teljesítmény'] = heater_power_kw * power_df['Arány']
             else:
                 power_df['Arány'] = 1.0
-                power_df['Arányosított_teljesítmény'] = power_df['Teljesítmény (W)']
+                power_df['Arányosított_teljesítmény'] = power_df['Teljesítmény (kW)']
             
             power_df = power_df.sort_values('Dátum_Idő').reset_index(drop=True)
             
@@ -129,7 +131,7 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
             
             # CO2 kibocsátás számítása grammban minden egyedi teljesítményértékhez
             # Ha van fűtőteljesítmény, az arányosított teljesítményt használjuk
-            power_with_co2['Teljesítmény (W)'] = pd.to_numeric(power_with_co2['Teljesítmény (W)'], errors='coerce').astype(float)
+            power_with_co2['Teljesítmény (kW)'] = pd.to_numeric(power_with_co2['Teljesítmény (kW)'], errors='coerce').astype(float)
             power_with_co2['CO2 Kibocsátás (g CO2/kWh)'] = pd.to_numeric(power_with_co2['CO2 Kibocsátás (g CO2/kWh)'], errors='coerce').astype(float)
             power_with_co2['Időköz_óra'] = pd.to_numeric(power_with_co2['Időköz_óra'], errors='coerce').astype(float)
             
@@ -137,50 +139,51 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
             if 'Arányosított_teljesítmény' in power_with_co2.columns:
                 power_with_co2['Számítási_teljesítmény'] = pd.to_numeric(power_with_co2['Arányosított_teljesítmény'], errors='coerce').astype(float)
             else:
-                power_with_co2['Számítási_teljesítmény'] = power_with_co2['Teljesítmény (W)']
+                power_with_co2['Számítási_teljesítmény'] = power_with_co2['Teljesítmény (kW)']
 
-            # Energia (kWh) = arányosított teljesítmény (W) * időköz (óra) / 1000
+            # Energia (kWh) = teljesítmény (kW) * időköz (óra)
             # CO2 (g) = energia (kWh) * CO2 intenzitás (g CO2/kWh)
-            power_with_co2['Energia (kWh)'] = (power_with_co2['Számítási_teljesítmény'] * power_with_co2['Időköz_óra']) / 1000.0
+            power_with_co2['Energia (kWh)'] = power_with_co2['Számítási_teljesítmény'] * power_with_co2['Időköz_óra']
             power_with_co2['CO2 (g)'] = power_with_co2['Energia (kWh)'] * power_with_co2['CO2 Kibocsátás (g CO2/kWh)']
             
             # Órás átlagos teljesítmény és összesített CO2 számítása (megjelenítéshez)
             co2_hourly_with_power = power_with_co2.groupby('Dátum_Idő_Óra').agg({
-                'Teljesítmény (W)': 'mean',
+                'Teljesítmény (kW)': 'mean',
                 'CO2 (g)': 'sum'
             }).reset_index()
-            co2_hourly_with_power.columns = ['Dátum és idő', 'Óras átlagos teljesítmény (W)', 'Óras CO2 (g)']
+            co2_hourly_with_power.columns = ['Dátum és idő', 'Óras átlagos teljesítmény (kW)', 'Óras CO2 (g)']
             co2_hourly_with_power['Dátum'] = co2_hourly_with_power['Dátum és idő'].dt.date
             
             # Minden egyedi teljesítményérték és hozzá tartozó CO2 kibocsátás (diagramhoz)
             # Az adatbázisból közvetlenül kiolvasott teljesítményértékeket használjuk
-            power_co2_pairs = power_with_co2[['Teljesítmény (W)', 'CO2 (g)']].copy()
-            power_co2_pairs.columns = ['Teljesítmény (W)', 'CO2 (g)']
+            power_co2_pairs = power_with_co2[['Teljesítmény (kW)', 'CO2 (g)']].copy()
+            power_co2_pairs.columns = ['Teljesítmény (kW)', 'CO2 (g)']
             
             # Napi adatok kiszámítása
             # Első és utolsó mérés ideje, átlagos teljesítmény, mérések száma
             daily_stats = power_with_co2.groupby('Dátum').agg({
-                'Teljesítmény (W)': ['mean', 'count'],
+                'Teljesítmény (kW)': ['mean', 'sum', 'count'],
                 'Dátum_Idő': ['min', 'max']  # Első és utolsó mérés ideje
             }).reset_index()
             
             # Oszlopnevek javítása
-            daily_stats.columns = ['Dátum', 'Napi átlagos teljesítmény (W)', 'Mérések_száma', 'Első_mérés', 'Utolsó_mérés']
+            daily_stats.columns = ['Dátum', 'Napi átlagos teljesítmény (kW)', 'Napi összes teljesítmény (kW)', 'Mérések_száma', 'Első_mérés', 'Utolsó_mérés']
             
             # Működési órák számítása (első és utolsó mérés közötti idő)
             daily_stats['Működési_óra'] = (daily_stats['Utolsó_mérés'] - daily_stats['Első_mérés']).dt.total_seconds() / 3600.0
             
-            # Fogyasztás számítása: átlagos teljesítmény × működési órák / 1000
-            daily_stats['Napi energia (kWh)'] = (daily_stats['Napi átlagos teljesítmény (W)'] * daily_stats['Működési_óra']) / 1000.0
+            # Fogyasztás számítása: összeadom a negyedórás kW értékeket és megszorzom 0,25-el (negyedórás felbontás miatt)
+            # Teljesítmény kW-ban van, ezért: sum(kW) * 0.25 = kWh
+            daily_stats['Napi energia (kWh)'] = daily_stats['Napi összes teljesítmény (kW)'] * 0.25
             
             # CO2 kibocsátás számítása: fogyasztás × CO2 intenzitás
             daily_stats['Napi CO2 (g)'] = daily_stats['Napi energia (kWh)'] * co2_intensity
             
             # Felesleges oszlopok eltávolítása
-            daily_stats = daily_stats.drop(columns=['Első_mérés', 'Utolsó_mérés'])
+            daily_stats = daily_stats.drop(columns=['Első_mérés', 'Utolsó_mérés', 'Napi összes teljesítmény (kW)'])
             
             # Float típusra konvertálás
-            daily_stats['Napi átlagos teljesítmény (W)'] = pd.to_numeric(daily_stats['Napi átlagos teljesítmény (W)'], errors='coerce').astype(float)
+            daily_stats['Napi átlagos teljesítmény (kW)'] = pd.to_numeric(daily_stats['Napi átlagos teljesítmény (kW)'], errors='coerce').astype(float)
             daily_stats['Napi energia (kWh)'] = pd.to_numeric(daily_stats['Napi energia (kWh)'], errors='coerce').astype(float)
             daily_stats['Napi CO2 (g)'] = pd.to_numeric(daily_stats['Napi CO2 (g)'], errors='coerce').astype(float)
             daily_stats['Működési_óra'] = pd.to_numeric(daily_stats['Működési_óra'], errors='coerce').astype(float)
@@ -193,8 +196,8 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
             
             # Minden egyedi teljesítményérték és hozzá tartozó CO2 kibocsátás (diagramhoz)
             # Visszaadjuk a power_co2_pairs-t is, hogy minden egyedi mérési pont látható legyen
-            power_co2_pairs = power_with_co2[['Teljesítmény (W)', 'CO2 (g)']].copy()
-            power_co2_pairs.columns = ['Teljesítmény (W)', 'CO2 (g)']
+            power_co2_pairs = power_with_co2[['Teljesítmény (kW)', 'CO2 (g)']].copy()
+            power_co2_pairs.columns = ['Teljesítmény (kW)', 'CO2 (g)']
             
             return co2_hourly_df, co2_hourly_with_power, daily_co2_df, power_co2_pairs
         else:

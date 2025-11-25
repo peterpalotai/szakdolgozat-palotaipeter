@@ -87,7 +87,7 @@ def show_energy_prediction_page():
     forecast_end_date = None
     
     if forecast_type == "havi":
-        # Havi előrejelzés: hónap kiválasztása (év nélkül)
+        # Havi előrejelzés: hónap kiválasztása
         month_names = ["Január", "Február", "Március", "Április", "Május", "Június",
                       "Július", "Augusztus", "Szeptember", "Október", "November", "December"]
         
@@ -101,11 +101,8 @@ def show_energy_prediction_page():
         selected_month = month_names.index(selected_month_name) + 1
         selected_period = f"{selected_month:02d}"
         
-        # Session state-be mentés, hogy a gomb megnyomása után is elérhető legyen
         st.session_state.selected_month = selected_month
         
-        # Előrejelzési dátumok meghatározása - JÖVŐRE vonatkozik (2025 augusztus 21 után)
-        # A következő év ugyanazon hónapjára készítünk előrejelzést
         forecast_year = 2026
         forecast_start_date = datetime(forecast_year, selected_month, 1)
         # Hónap utolsó napjának meghatározása
@@ -115,7 +112,7 @@ def show_energy_prediction_page():
             forecast_end_date = datetime(forecast_year, selected_month + 1, 1) - timedelta(days=1)
         
     elif forecast_type == "negyedéves":
-        # Negyedéves előrejelzés: negyedév kiválasztása (év nélkül)
+        # Negyedéves előrejelzés: negyedév kiválasztása
         quarter_names = [
             "1. negyedév (Január-Március)",
             "2. negyedév (Április-Június)",
@@ -144,8 +141,7 @@ def show_energy_prediction_page():
         # Session state-be mentés, hogy a gomb megnyomása után is elérhető legyen
         st.session_state.selected_quarter = selected_quarter
         
-        # Negyedév dátumainak meghatározása - JÖVŐRE vonatkozik (2025 augusztus 21 után)
-        # A következő év ugyanazon negyedévére készítünk előrejelzést
+        # Negyedév dátumainak meghatározása
         forecast_year = 2026
         if selected_quarter == 1:
             forecast_start_date = datetime(forecast_year, 1, 1)
@@ -161,7 +157,7 @@ def show_energy_prediction_page():
             forecast_end_date = datetime(forecast_year, 12, 31)
             
     elif forecast_type == "féléves":
-        # Féléves előrejelzés: félév kiválasztása (év nélkül)
+        # Féléves előrejelzés: félév kiválasztása
         semester_names = [
             "1. félév (Január-Június)",
             "2. félév (Július-December)"
@@ -184,8 +180,7 @@ def show_energy_prediction_page():
         # Session state-be mentés, hogy a gomb megnyomása után is elérhető legyen
         st.session_state.selected_semester = selected_semester
         
-        # Félév dátumainak meghatározása - JÖVŐRE vonatkozik (2025 augusztus 21 után)
-        # A következő év ugyanazon félévére készítünk előrejelzést
+        # Félév dátumainak meghatározása
         forecast_year = 2026
         if selected_semester == 1:
             forecast_start_date = datetime(forecast_year, 1, 1)
@@ -195,8 +190,6 @@ def show_energy_prediction_page():
             forecast_end_date = datetime(forecast_year, 12, 31)
             
     else:  # éves
-        # Éves előrejelzés: JÖVŐRE vonatkozik (2025 augusztus 21 után)
-        # A következő évre készítünk előrejelzést
         forecast_start_date = datetime(2026, 1, 1)
         forecast_end_date = datetime(2026, 12, 31)
         selected_period = "2026"
@@ -223,9 +216,7 @@ def show_energy_prediction_page():
                     selected_month_value = st.session_state.selected_month
                     
                     # Ugyanazon hónap keresése az előző évekből
-                    # Május (5) esetén dátum alapú lekérdezést használunk, mint a megtakarítási modulban
                     if selected_month_value == 5:  # Május
-                        # 2025-ös májusi adatok dátum alapú lekérdezéssel (mint a megtakarítási modulban)
                         start_date = "2025-05-01"
                         end_date = "2025-05-31"
                         query = f"""
@@ -335,7 +326,6 @@ def show_energy_prediction_page():
                     """
                     data = execute_query(query)
                 else:  # éves
-                    # Az egész adatbázis használata - semmit nem szűrünk dátum vagy hónap szerint
                     # Az összes elérhető adatot használjuk az előrejelzéshez
                     query = f"""
                     SELECT date, time, 
@@ -354,10 +344,6 @@ def show_energy_prediction_page():
                     """
                     data = execute_query(query)
                     
-                    # Ellenőrzés: az egész adathalmazt használjuk
-                    if data and len(data) > 0:
-                        st.info(f"ℹ️ Az előrejelzéshez {len(data)} adatsor került felhasználásra az egész adatbázisból.")
-                
                 if data and len(data) > 0:
                     # DataFrame létrehozása
                     df = pd.DataFrame(data, columns=['date', 'time', 'value', 'current', 
@@ -380,18 +366,14 @@ def show_energy_prediction_page():
                     df = df.sort_values('datetime').reset_index(drop=True)
                     
                     # Május esetén: éves átlag számítása hiányzó napokhoz
-                    # Ellenőrizzük, hogy a lekérdezés tartalmaz-e májusi adatokat
                     has_may_data = False
                     if forecast_type == "havi" and 'selected_month' in st.session_state and st.session_state.selected_month == 5:
                         has_may_data = True
                     elif forecast_type == "negyedéves" and 'selected_quarter' in st.session_state and st.session_state.selected_quarter == 2:
-                        # 2. negyedév tartalmazza a májust (április, május, június)
                         has_may_data = True
                     elif forecast_type == "féléves" and 'selected_semester' in st.session_state and st.session_state.selected_semester == 1:
-                        # 1. félév tartalmazza a májust (január-június)
                         has_may_data = True
                     elif forecast_type == "éves":
-                        # Éves előrejelzés mindig tartalmazza a májust
                         has_may_data = True
                     
                     yearly_avg_value = None
@@ -429,22 +411,33 @@ def show_energy_prediction_page():
                             yearly_df['external_humidity'] = pd.to_numeric(yearly_df['external_humidity'], errors='coerce')
                             yearly_df = yearly_df.dropna(subset=['value'])
                             
-                            # Éves átlagok számítása
-                            yearly_avg_value = yearly_df['value'].mean()
-                            yearly_avg_internal_temp = yearly_df['internal_temp'].mean()
-                            yearly_avg_external_temp = yearly_df['external_temp'].mean()
-                            yearly_avg_internal_humidity = yearly_df['internal_humidity'].mean()
-                            yearly_avg_external_humidity = yearly_df['external_humidity'].mean()
+                            # Dátum-idő kombinálása
+                            yearly_df['datetime'] = pd.to_datetime(yearly_df['date'].astype(str) + ' ' + yearly_df['time'].astype(str))
+                            yearly_df['date'] = yearly_df['datetime'].dt.date
+                            
+                            # Napi fogyasztás számítása: összeadom a negyedórás kW értékeket és megszorzom 0,25-el
+                            yearly_daily_consumption = yearly_df.groupby('date')['value'].sum() * 0.25
+                            
+                            # Éves átlagok számítása (napi fogyasztás átlaga kWh-ban)
+                            yearly_avg_value = yearly_daily_consumption.mean()
+                            yearly_avg_internal_temp = yearly_df.groupby('date')['internal_temp'].mean().mean()
+                            yearly_avg_external_temp = yearly_df.groupby('date')['external_temp'].mean().mean()
+                            yearly_avg_internal_humidity = yearly_df.groupby('date')['internal_humidity'].mean().mean()
+                            yearly_avg_external_humidity = yearly_df.groupby('date')['external_humidity'].mean().mean()
                     
-                    # Napi átlagolás az ARIMA modellhez
+                    # Napi fogyasztás számítása: összeadom a negyedórás kW értékeket és megszorzom 0,25-el
                     df['date'] = df['datetime'].dt.date
+                    # Napi fogyasztás (kWh) = sum(kW) * 0.25
+                    daily_consumption = df.groupby('date')['value'].sum() * 0.25
+                    # Egyéb változók átlaga (hőmérséklet, páratartalom)
                     daily_df = df.groupby('date').agg({
-                        'value': 'mean',
                         'internal_temp': 'mean',
                         'external_temp': 'mean',
                         'internal_humidity': 'mean',
                         'external_humidity': 'mean'
                     }).reset_index()
+                    # Napi fogyasztás hozzáadása (kWh-ban)
+                    daily_df['value'] = daily_consumption.values
                     daily_df['datetime'] = pd.to_datetime(daily_df['date'])
                     daily_df = daily_df.drop('date', axis=1)
                     daily_df = daily_df.sort_values('datetime').reset_index(drop=True)
@@ -498,7 +491,7 @@ def show_energy_prediction_page():
                             
                             # Info üzenet
                             if missing_days_count > 0:
-                                st.info(f"ℹ️ Májusi adatok: {len(complete_may_df)} nap (összesen), ebből {missing_days_count} nap kitöltve éves átlaggal ({yearly_avg_value:.4f} kW).")
+                                st.info(f"ℹ️ Májusi adatok: {len(complete_may_df)} nap (összesen), ebből {missing_days_count} nap kitöltve éves átlaggal ({yearly_avg_value:.4f} kWh).")
                             else:
                                 st.info(f"ℹ️ Májusi adatok: {len(complete_may_df)} nap, minden nap rendelkezik mért adattal.")
                         else:
@@ -603,17 +596,10 @@ def show_energy_prediction_page():
             forecast_type = st.session_state.get('forecast_type', 'havi')
             
             # Vizuális megjelenítés - CSAK az előrejelzett időszak
-            # Az adatok kW-ban vannak (mint a megtakarítási modulban)
-            # Ha az értékek nagyobbak mint 1, akkor valószínűleg W-ban vannak, konvertáljuk kW-ra
+            # Az előrejelzés már kWh-ban van (napi fogyasztás)
             forecast_values_for_chart = forecast_df['forecast'].copy()
             upper_bound_for_chart = forecast_df['upper_bound'].copy()
             lower_bound_for_chart = forecast_df['lower_bound'].copy()
-            
-            # Ha az átlagos érték nagyobb mint 1, akkor valószínűleg W-ban van, konvertáljuk kW-ra
-            if forecast_values_for_chart.mean() > 1:
-                forecast_values_for_chart = forecast_values_for_chart / 1000
-                upper_bound_for_chart = upper_bound_for_chart / 1000
-                lower_bound_for_chart = lower_bound_for_chart / 1000
             
             fig = go.Figure()
             
@@ -661,7 +647,7 @@ def show_energy_prediction_page():
             fig.update_layout(
                 title=f"Fogyasztás előrejelzés - {title_suffix}",
                 xaxis_title="Dátum",
-                yaxis_title="Napi átlagolt számított fogyasztás (kW)",
+                yaxis_title="Napi fogyasztás (kWh)",
                 hovermode='x unified',
                 template="plotly_white",
                 height=600
@@ -669,17 +655,8 @@ def show_energy_prediction_page():
             
             st.plotly_chart(fig, use_container_width=True)
             
-            # Előrejelzési statisztikák
-            # Az adatok kW-ban vannak, de ha W-ban vannak, akkor át kell konvertálni
-            # Ellenőrizzük, hogy az értékek W-ban vannak-e (nagy számok) vagy kW-ban (kisebb számok)
-            forecast_values = forecast_df['forecast']
-            
-            # Ha az átlagos érték nagyobb mint 1, akkor valószínűleg W-ban van, konvertáljuk kW-ra
-            if forecast_values.mean() > 1:
-                forecast_values_kw = forecast_values / 1000
-            else:
-                forecast_values_kw = forecast_values
-
+            # Előrejelzési értékek (már kWh-ban vannak)
+            forecast_values_kwh = forecast_df['forecast'].copy()
             
             # Ár előrejelzés és költség számítás
             # 2025-ös veszteségi energiaár használata
@@ -700,11 +677,9 @@ def show_energy_prediction_page():
                 
                 daily_loss_costs = []
                 
-                for consumption_kw in forecast_values_kw:
-                    # Napi energia kWh-ban: kW × 24 óra
-                    daily_energy_kwh = consumption_kw * 24
+                for consumption_kwh in forecast_values_kwh:
                     # Költség: energia (kWh) × ár (Ft/kWh)
-                    daily_cost = daily_energy_kwh * loss_price_2025
+                    daily_cost = consumption_kwh * loss_price_2025
                     daily_loss_costs.append(daily_cost)
                 
                 # Költség statisztikák

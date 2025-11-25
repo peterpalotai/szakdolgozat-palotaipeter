@@ -173,13 +173,13 @@ def show_home_page():
             # Oszlopnevek definiálása - termosztátos vezérlőnél nincs harmatpont
             if selected_table == "dfv_termosztat_db":
                 column_names = [
-                    "Dátum", "Idő", "Hőmérséklet (°C)", 
+                    "Dátum", "Idő", "Belső hőmérséklet (°C)", 
                     "Áramerősség (A)", "Teljesítmény (W)", 
                     "Relatív páratartalom (%)", "Külső páratartalom (g/m³)", "Külső hőmérséklet (°C)"
                 ]
             else:
                 column_names = [
-                    "Dátum", "Idő", "Harmatpont (°C)", "Hőmérséklet (°C)", 
+                    "Dátum", "Idő", "Harmatpont (°C)", "Belső hőmérséklet (°C)", 
                     "Áramerősség (A)", "Teljesítmény (W)", 
                     "Relatív páratartalom (%)", "Külső páratartalom (g/m³)", "Külső hőmérséklet (°C)"
                 ]
@@ -504,11 +504,11 @@ def show_home_page():
                 
                 # Oszlopnevek definiálása - termosztátos vezérlőnél nincs harmatpont
                 if selected_table == "dfv_termosztat_db":
-                    column_names_chart = ["ID", "Dátum", "Idő", "Hőmérséklet (°C)", 
+                    column_names_chart = ["ID", "Dátum", "Idő", "Belső hőmérséklet (°C)", 
                                       "Áramerősség (A)", "Teljesítmény (W)", 
                                       "Relatív páratartalom (%)", "Külső páratartalom (g/m³)", "Külső hőmérséklet (°C)"]
                 else:
-                    column_names_chart = ["ID", "Dátum", "Idő", "Harmatpont (°C)", "Hőmérséklet (°C)", 
+                    column_names_chart = ["ID", "Dátum", "Idő", "Harmatpont (°C)", "Belső hőmérséklet (°C)", 
                                       "Áramerősség (A)", "Teljesítmény (W)", 
                                       "Relatív páratartalom (%)", "Külső páratartalom (g/m³)", "Külső hőmérséklet (°C)"]
                 #Csak a szükséges oszlopnevek használata
@@ -700,14 +700,32 @@ def show_home_page():
             current_page_size = st.session_state.co2_page_size
             
             # Táblázatos megjelenítés
-            display_df = daily_co2_df[['Dátum', 'Napi átlagos teljesítmény (W)', 'Napi energia (kWh)', 'Napi CO2 (g)']].copy()
-            display_df.columns = ['Dátum', 'Átlagos teljesítmény (W)', 'Fogyasztás (kWh)', 'CO2 kibocsátás (g)']
+            # Csak a szükséges oszlopokat használjuk, ha nincs valamelyik, akkor kihagyjuk
+            available_columns = []
+            if 'Dátum' in daily_co2_df.columns:
+                available_columns.append('Dátum')
+            if 'Napi energia (kWh)' in daily_co2_df.columns:
+                available_columns.append('Napi energia (kWh)')
+            if 'Napi CO2 (g)' in daily_co2_df.columns:
+                available_columns.append('Napi CO2 (g)')
+            
+            if available_columns:
+                display_df = daily_co2_df[available_columns].copy()
+                # Oszlopnevek átnevezése
+                column_mapping = {
+                    'Dátum': 'Dátum',
+                    'Napi energia (kWh)': 'Adott nap teljes fogyasztása (kWh)',
+                    'Napi CO2 (g)': 'CO2 kibocsátás (g)'
+                }
+                display_df.columns = [column_mapping.get(col, col) for col in display_df.columns]
+            else:
+                display_df = pd.DataFrame()
             
             # Dátum formázása
             display_df['Dátum'] = pd.to_datetime(display_df['Dátum']).dt.strftime('%Y-%m-%d')
             
             # Numerikus oszlopok kerekítése 2 tizedesjegyre
-            for col in ['Átlagos teljesítmény (W)', 'Fogyasztás (kWh)', 'CO2 kibocsátás (g)']:
+            for col in ['Fogyasztás (kWh)', 'CO2 kibocsátás (g)']:
                 if col in display_df.columns:
                     display_df[col] = pd.to_numeric(display_df[col], errors='coerce').round(2)
             

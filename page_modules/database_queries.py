@@ -127,7 +127,7 @@ def get_table_data_paginated(table_name: str, columns: str, page_size: int, offs
     Returns:
         SQL lekérdezés string
     """
-    query = f"SELECT {columns} FROM {table_name} LIMIT {page_size} OFFSET {offset}"
+    query = f"SELECT {columns} FROM {table_name} ORDER BY date, time LIMIT {page_size} OFFSET {offset}"
     return query
 
 

@@ -141,7 +141,7 @@ def show_co2_savings():
             heater_daily_co2 = co2_hourly_df_copy.groupby('Dátum').agg({
                 'Izzó_CO2_g': 'sum'
             }).reset_index()
-            heater_daily_co2.columns = ['Dátum', 'Beépített fűtőtest napi CO2 (g)']
+            heater_daily_co2.columns = ['Dátum', 'Folyamatos működés esetén napi CO2 (g)']
             
             # Összehasonlítás az adatbázisból lekért adatokkal
             if 'co2_daily_dataframe' in st.session_state and st.session_state['co2_daily_dataframe'] is not None:
@@ -155,24 +155,24 @@ def show_co2_savings():
                     how='inner'
                 )
                 
-                # Megtakarítás számítása (Beépített fűtőtest CO2 - Adatbázis CO2)
-                comparison_df['CO2 megtakarítás (g)'] = comparison_df['Beépített fűtőtest napi CO2 (g)'] - comparison_df['Napi CO2 (g)']
-                comparison_df['Megtakarítás százalék'] = (comparison_df['CO2 megtakarítás (g)'] / comparison_df['Beépített fűtőtest napi CO2 (g)']) * 100
+                # Megtakarítás számítása (Folyamatos működés esetén CO2 - Adatbázis CO2)
+                comparison_df['CO2 megtakarítás (g)'] = comparison_df['Folyamatos működés esetén napi CO2 (g)'] - comparison_df['Napi CO2 (g)']
+                comparison_df['Megtakarítás százalék'] = (comparison_df['CO2 megtakarítás (g)'] / comparison_df['Folyamatos működés esetén napi CO2 (g)']) * 100
                 
                 # Összesített eredmények
                 st.write("### Összesített eredmények")
                 
                 total_database_co2 = comparison_df['Napi CO2 (g)'].sum() / 1000.0  # kg-ba konvertálás
-                total_heater_co2 = comparison_df['Beépített fűtőtest napi CO2 (g)'].sum() / 1000.0  # kg-ba konvertálás
+                total_heater_co2 = comparison_df['Folyamatos működés esetén napi CO2 (g)'].sum() / 1000.0  # kg-ba konvertálás
                 total_savings = comparison_df['CO2 megtakarítás (g)'].sum() / 1000.0  # kg-ba konvertálás
                 avg_savings_percent = comparison_df['Megtakarítás százalék'].mean()
                 
                 col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
-                    st.metric(f"{selected_table_display_name} összes CO2 kibocsátás", f"{total_database_co2:.2f} kg")
+                    st.metric(f"{selected_table_display_name} összes CO2 kibocsátása (éves)", f"{total_database_co2:.2f} kg")
                 with col2:
-                    st.metric("Beépített fűtőtest összes CO2 kibocsátás", f"{total_heater_co2:.2f} kg")
+                    st.metric("Folyamatos működés esetén összes CO2 kibocsátása (éves)", f"{total_heater_co2:.2f} kg")
                 with col3:
                     st.metric("Összes megtakarítás", f"{total_savings:.2f} kg", 
                              delta=f"{avg_savings_percent:.2f}%")
@@ -219,18 +219,18 @@ def show_co2_savings():
                 if "co2_savings_table_offset" not in st.session_state:
                     st.session_state.co2_savings_table_offset = 0
                 
-                display_comparison = comparison_df[['Dátum', 'Napi CO2 (g)', 'Beépített fűtőtest napi CO2 (g)', 'CO2 megtakarítás (g)', 'Megtakarítás százalék']].copy()
+                display_comparison = comparison_df[['Dátum', 'Napi CO2 (g)', 'Folyamatos működés esetén napi CO2 (g)', 'CO2 megtakarítás (g)', 'Megtakarítás százalék']].copy()
                 # kg-ba konvertálás
                 display_comparison['Napi CO2 (g)'] = display_comparison['Napi CO2 (g)'] / 1000.0
-                display_comparison['Beépített fűtőtest napi CO2 (g)'] = display_comparison['Beépített fűtőtest napi CO2 (g)'] / 1000.0
+                display_comparison['Folyamatos működés esetén napi CO2 (g)'] = display_comparison['Folyamatos működés esetén napi CO2 (g)'] / 1000.0
                 display_comparison['CO2 megtakarítás (g)'] = display_comparison['CO2 megtakarítás (g)'] / 1000.0
-                display_comparison.columns = ['Dátum', f'{selected_table_display_name} CO2 kibocsátás (kg)', 'Beépített fűtőtest CO2 kibocsátás (kg)', 'Megtakarítás (kg)', 'Megtakarítás (%)']
+                display_comparison.columns = ['Dátum', f'{selected_table_display_name} CO2 kibocsátás (kg)', 'Folyamatos működés esetén CO2 kibocsátás (kg)', 'Megtakarítás (kg)', 'Megtakarítás (%)']
                 
                 # Dátum formázása
                 display_comparison['Dátum'] = pd.to_datetime(display_comparison['Dátum']).dt.strftime('%Y-%m-%d')
                 
                 # Numerikus oszlopok kerekítése 2 tizedesjegyre
-                for col in [f'{selected_table_display_name} CO2 kibocsátás (kg)', 'Beépített fűtőtest CO2 kibocsátás (kg)', 'Megtakarítás (kg)', 'Megtakarítás (%)']:
+                for col in [f'{selected_table_display_name} CO2 kibocsátás (kg)', 'Folyamatos működés esetén CO2 kibocsátás (kg)', 'Megtakarítás (kg)', 'Megtakarítás (%)']:
                     if col in display_comparison.columns:
                         display_comparison[col] = pd.to_numeric(display_comparison[col], errors='coerce').round(2)
                 
@@ -289,9 +289,9 @@ def show_co2_savings():
                 st.write("### Vizuális összehasonlítás")
                 fig_comparison = go.Figure()
                 
-                # Beépített fűtőtest adatok (mindkét táblához ugyanaz)
+                # Folyamatos működés esetén adatok (mindkét táblához ugyanaz)
                 comparison_df_kg = comparison_df.copy()
-                comparison_df_kg['Beépített fűtőtest napi CO2 (g)'] = comparison_df_kg['Beépített fűtőtest napi CO2 (g)'] / 1000.0
+                comparison_df_kg['Folyamatos működés esetén napi CO2 (g)'] = comparison_df_kg['Folyamatos működés esetén napi CO2 (g)'] / 1000.0
                 
                 # Dinamikus fűtésvezérlő adatok
                 if 'co2_daily_dataframe_smart' in st.session_state and st.session_state['co2_daily_dataframe_smart'] is not None:
@@ -333,17 +333,17 @@ def show_co2_savings():
                         marker=dict(size=6)
                     ))
                 
-                # Beépített fűtőtest vonal
+                # Folyamatos működés esetén vonal
                 fig_comparison.add_trace(go.Scatter(
                     x=comparison_df_kg['Dátum'],
-                    y=comparison_df_kg['Beépített fűtőtest napi CO2 (g)'],
+                    y=comparison_df_kg['Folyamatos működés esetén napi CO2 (g)'],
                     mode='lines',
-                    name='Beépített fűtőtest CO2 kibocsátás',
+                    name='Folyamatos működés esetén CO2 kibocsátás',
                     line=dict(color='red', width=1.5, dash='dash')
                 ))
                 
                 fig_comparison.update_layout(
-                    title="CO2 Kibocsátás összehasonlítás: Dinamikus fűtésvezérlő vs Termosztátos vezérlő vs Beépített fűtőtest",
+                    title="CO2 Kibocsátás összehasonlítás: Dinamikus fűtésvezérlő vs Termosztátos vezérlő vs Folyamatos működés esetén",
                     xaxis_title="Dátum",
                     yaxis_title="CO2 Kibocsátás (kg)",
                     hovermode='x unified',
@@ -353,58 +353,120 @@ def show_co2_savings():
                 
                 st.plotly_chart(fig_comparison, use_container_width=True)
                 
-                # Megtakarítás hőtérkép - kiválasztott táblához tartozó adatokkal
-                # A kiválasztott táblához tartozó megtakarítás adatok
-                selected_daily_co2_df = st.session_state['co2_daily_dataframe']
-                selected_comparison = pd.merge(
-                    selected_daily_co2_df[['Dátum', 'Napi CO2 (g)']],
-                    heater_daily_co2,
-                    on='Dátum',
-                    how='inner'
-                )
-                selected_comparison['CO2 megtakarítás (g)'] = selected_comparison['Beépített fűtőtest napi CO2 (g)'] - selected_comparison['Napi CO2 (g)']
-                selected_comparison['CO2 megtakarítás (kg)'] = selected_comparison['CO2 megtakarítás (g)'] / 1000.0
+                # Megtakarítás hőtérkép - összehasonlítás típusának kiválasztása
+                st.write("### Megtakarítás hőtérkép")
                 
-                # Dátum oszlopok létrehozása a hőtérképhez
-                selected_comparison['Dátum'] = pd.to_datetime(selected_comparison['Dátum'])
-                selected_comparison['Év'] = selected_comparison['Dátum'].dt.year
-                selected_comparison['Hónap'] = selected_comparison['Dátum'].dt.month
-                selected_comparison['Nap'] = selected_comparison['Dátum'].dt.day
-                
-                # Hőtérkép adatok előkészítése
-                heatmap_data = selected_comparison.pivot_table(
-                    values='CO2 megtakarítás (kg)',
-                    index='Nap',
-                    columns='Hónap',
-                    aggfunc='mean'
+                # Összehasonlítás típusának kiválasztása
+                comparison_type = st.selectbox(
+                    "Összehasonlítás típusa:",
+                    options=[
+                        "Dinamikus vs Termosztátos",
+                        "Dinamikus vs Folyamatos működés",
+                        "Termosztátos vs Folyamatos működés"
+                    ],
+                    key="heatmap_comparison_type"
                 )
                 
-                # Hónapnevek
-                month_names = ['Jan', 'Feb', 'Már', 'Ápr', 'Máj', 'Jún', 
-                              'Júl', 'Aug', 'Sze', 'Okt', 'Nov', 'Dec']
+                # Adatok előkészítése a kiválasztott összehasonlítás típus alapján
+                if comparison_type == "Dinamikus vs Termosztátos":
+                    # Dinamikus vs Termosztátos megtakarítás
+                    if 'co2_daily_dataframe_smart' in st.session_state and st.session_state['co2_daily_dataframe_smart'] is not None and \
+                       'co2_daily_dataframe_thermo' in st.session_state and st.session_state['co2_daily_dataframe_thermo'] is not None:
+                        daily_co2_df_smart = st.session_state['co2_daily_dataframe_smart']
+                        daily_co2_df_thermo = st.session_state['co2_daily_dataframe_thermo']
+                        
+                        selected_comparison = pd.merge(
+                            daily_co2_df_smart[['Dátum', 'Napi CO2 (g)']],
+                            daily_co2_df_thermo[['Dátum', 'Napi CO2 (g)']],
+                            on='Dátum',
+                            how='inner',
+                            suffixes=('_smart', '_thermo')
+                        )
+                        # Termosztátos - Dinamikus (ha pozitív, dinamikus takarít meg)
+                        selected_comparison['CO2 megtakarítás (g)'] = selected_comparison['Napi CO2 (g)_thermo'] - selected_comparison['Napi CO2 (g)_smart']
+                        selected_comparison['CO2 megtakarítás (kg)'] = selected_comparison['CO2 megtakarítás (g)'] / 1000.0
+                        comparison_title = "Dinamikus vs Termosztátos"
+                    else:
+                        st.warning("Nincs elegendő adat a Dinamikus vs Termosztátos összehasonlításhoz!")
+                        selected_comparison = None
+                        
+                elif comparison_type == "Dinamikus vs Folyamatos működés":
+                    # Dinamikus vs Folyamatos működés megtakarítás
+                    if 'co2_daily_dataframe_smart' in st.session_state and st.session_state['co2_daily_dataframe_smart'] is not None:
+                        daily_co2_df_smart = st.session_state['co2_daily_dataframe_smart']
+                        selected_comparison = pd.merge(
+                            daily_co2_df_smart[['Dátum', 'Napi CO2 (g)']],
+                            heater_daily_co2,
+                            on='Dátum',
+                            how='inner'
+                        )
+                        selected_comparison['CO2 megtakarítás (g)'] = selected_comparison['Folyamatos működés esetén napi CO2 (g)'] - selected_comparison['Napi CO2 (g)']
+                        selected_comparison['CO2 megtakarítás (kg)'] = selected_comparison['CO2 megtakarítás (g)'] / 1000.0
+                        comparison_title = "Dinamikus vs Folyamatos működés"
+                    else:
+                        st.warning("Nincs elegendő adat a Dinamikus vs Folyamatos működés összehasonlításhoz!")
+                        selected_comparison = None
+                        
+                elif comparison_type == "Termosztátos vs Folyamatos működés":
+                    # Termosztátos vs Folyamatos működés megtakarítás
+                    if 'co2_daily_dataframe_thermo' in st.session_state and st.session_state['co2_daily_dataframe_thermo'] is not None:
+                        daily_co2_df_thermo = st.session_state['co2_daily_dataframe_thermo']
+                        selected_comparison = pd.merge(
+                            daily_co2_df_thermo[['Dátum', 'Napi CO2 (g)']],
+                            heater_daily_co2,
+                            on='Dátum',
+                            how='inner'
+                        )
+                        selected_comparison['CO2 megtakarítás (g)'] = selected_comparison['Folyamatos működés esetén napi CO2 (g)'] - selected_comparison['Napi CO2 (g)']
+                        selected_comparison['CO2 megtakarítás (kg)'] = selected_comparison['CO2 megtakarítás (g)'] / 1000.0
+                        comparison_title = "Termosztátos vs Folyamatos működés"
+                    else:
+                        st.warning("Nincs elegendő adat a Termosztátos vs Folyamatos működés összehasonlításhoz!")
+                        selected_comparison = None
                 
-                # Csak azokat a hónapokat jelenítjük meg, ahol van adat
-                available_months = heatmap_data.columns.tolist()
-                heatmap_data.columns = [month_names[m-1] if m <= 12 else f'Hónap {m}' for m in available_months]
-                
-                fig_heatmap = go.Figure(data=go.Heatmap(
-                    z=heatmap_data.values,
-                    x=heatmap_data.columns,
-                    y=heatmap_data.index,
-                    colorscale='Greens',
-                    colorbar=dict(title="CO2 megtakarítás (kg)"),
-                    hovertemplate='Nap: %{y}<br>Hónap: %{x}<br>Megtakarítás: %{z:.2f} kg<extra></extra>'
-                ))
-                
-                fig_heatmap.update_layout(
-                    title=f"Napi CO2 megtakarítás hőtérkép - {selected_table_display_name}",
-                    xaxis_title="Hónap",
-                    yaxis_title="Nap",
-                    template="plotly_white",
-                    height=600
-                )
-                
-                st.plotly_chart(fig_heatmap, use_container_width=True)
+                if selected_comparison is not None and not selected_comparison.empty:
+                    # Dátum oszlopok létrehozása a hőtérképhez
+                    selected_comparison['Dátum'] = pd.to_datetime(selected_comparison['Dátum'])
+                    selected_comparison['Év'] = selected_comparison['Dátum'].dt.year
+                    selected_comparison['Hónap'] = selected_comparison['Dátum'].dt.month
+                    selected_comparison['Nap'] = selected_comparison['Dátum'].dt.day
+                    
+                    # Hőtérkép adatok előkészítése
+                    heatmap_data = selected_comparison.pivot_table(
+                        values='CO2 megtakarítás (kg)',
+                        index='Nap',
+                        columns='Hónap',
+                        aggfunc='mean'
+                    )
+                    
+                    # Hónapnevek
+                    month_names = ['Jan', 'Feb', 'Már', 'Ápr', 'Máj', 'Jún', 
+                                  'Júl', 'Aug', 'Sze', 'Okt', 'Nov', 'Dec']
+                    
+                    # Csak azokat a hónapokat jelenítjük meg, ahol van adat
+                    available_months = heatmap_data.columns.tolist()
+                    heatmap_data.columns = [month_names[m-1] if m <= 12 else f'Hónap {m}' for m in available_months]
+                    
+                    fig_heatmap = go.Figure(data=go.Heatmap(
+                        z=heatmap_data.values,
+                        x=heatmap_data.columns,
+                        y=heatmap_data.index,
+                        colorscale='Greens',
+                        colorbar=dict(title="CO2 megtakarítás (kg)"),
+                        hovertemplate='Nap: %{y}<br>Hónap: %{x}<br>Megtakarítás: %{z:.2f} kg<extra></extra>'
+                    ))
+                    
+                    fig_heatmap.update_layout(
+                        title=f"Napi CO2 megtakarítás hőtérkép - {comparison_title}",
+                        xaxis_title="Hónap",
+                        yaxis_title="Nap",
+                        template="plotly_white",
+                        height=600
+                    )
+                    
+                    st.plotly_chart(fig_heatmap, use_container_width=True)
+                else:
+                    st.warning("Nincs elegendő adat a hőtérképhez!")
                 
             else:
                 st.warning("Nincs elegendő adat az összehasonlításhoz. Kérjük, várjon, amíg a CO2 adatok betöltődnek.")

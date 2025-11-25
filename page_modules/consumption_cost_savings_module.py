@@ -271,8 +271,8 @@ def show_consumption_cost_savings(start_date, end_date):
                             yearly_savings_thermo = thermostat_savings_cost * 365
                             
                             # Számított értékek - Dinamikus fűtésvezérlő vs Termosztátos vezérlő (fogyasztási megtakarítás)
-                            # Energia különbség kWh-ban: termosztátos - dinamikus (ha pozitív, dinamikus takarít meg)
-                            consumption_diff_smart_thermo = thermostat_daily_energy - smart_daily_energy
+                            # Energia különbség kWh-ban: dinamikus - termosztátos (ha negatív, dinamikus takarít meg)
+                            consumption_diff_smart_thermo = smart_daily_energy - thermostat_daily_energy
                             # Költség különbség: negatív, mert megtakarítás
                             cost_diff_smart_thermo = -smart_vs_thermo_savings_cost
                             monthly_diff_smart_thermo = cost_diff_smart_thermo * 30
@@ -297,15 +297,25 @@ def show_consumption_cost_savings(start_date, end_date):
                             
                             # Kiválasztott vezérlő adatainak előkészítése
                             if controller_choice == "Dinamikus fűtésvezérlő":
-                                selected_df = smart_daily_energy_df[['date', 'daily_energy_kwh', 'daily_cost_ft']].copy()
+                                selected_df = smart_daily_energy_df[['date', 'daily_energy_kwh', 'year']].copy()
                                 controller_name = "Dinamikus fűtésvezérlő"
                             else:
-                                selected_df = thermostat_daily_energy_df[['date', 'daily_energy_kwh', 'daily_cost_ft']].copy()
+                                selected_df = thermostat_daily_energy_df[['date', 'daily_energy_kwh', 'year']].copy()
                                 controller_name = "Termosztátos vezérlő"
+                            
+                           
+                            if loss_price_2024 is not None and loss_price_2025 is not None:
+                                selected_df['Költség (Ft)'] = selected_df.apply(
+                                    lambda row: row['daily_energy_kwh'] * (loss_price_2024 if row['year'] == 2024 else loss_price_2025),
+                                    axis=1
+                                )
+                            else:
+                                selected_df['Költség (Ft)'] = 0.0
                             
                             # Dátum formázása és oszlopok átnevezése
                             selected_df['date'] = pd.to_datetime(selected_df['date']).dt.strftime('%Y-%m-%d')
                             selected_df = selected_df.sort_values('date')
+                            selected_df = selected_df[['date', 'daily_energy_kwh', 'Költség (Ft)']]
                             selected_df.columns = ['Dátum', 'Fogyasztás (kWh)', 'Költség (Ft)']
                             
                             # Táblázat megjelenítése
@@ -504,26 +514,26 @@ def show_consumption_cost_savings(start_date, end_date):
                             # Összefoglaló táblázat
                             st.write("### Összefoglaló")
                             
+                            # Fogyasztás különbségek számítása - minden napra külön, majd összegezve
+                            # Dinamikus vs Folyamatos működés esetén
+                            smart_heater_consumption_diff_total = (smart_daily_energy_df['daily_energy_kwh'] - heater_daily_energy).sum()
+                            
+                            # Termosztátos vs Folyamatos működés esetén
+                            thermo_heater_consumption_diff_total = (thermostat_daily_energy_df['daily_energy_kwh'] - heater_daily_energy).sum()
+                            
+                            # Dinamikus vs Termosztátos - dátum alapján összevonva
+                            smart_thermo_consumption_diff_total = (smart_thermo_comparison['smart_energy'] - smart_thermo_comparison['thermo_energy']).sum()
+                            
                             summary_data = {
                                 'Összehasonlítás': [
                                     'Dinamikus fűtésvezérlő vs Folyamatos működés esetén',
                                     'Termosztátos vezérlő vs Folyamatos működés esetén',
                                     'Dinamikus fűtésvezérlő vs Termosztátos vezérlő'
                                 ],
-                                'Fogyasztás különbség (kWh)': [
-                                    f"{consumption_diff_smart_heater:.2f}",
-                                    f"{consumption_diff_thermo_heater:.2f}",
-                                    f"{consumption_diff_smart_thermo:.2f}"
-                                ],
-                                'Napi költség különbség (Ft)': [
-                                    f"{cost_diff_smart_heater:.2f}",
-                                    f"{cost_diff_thermo_heater:.2f}",
-                                    f"{cost_diff_smart_thermo:.2f}"
-                                ],
-                                'Havi költség különbség (Ft)': [
-                                    f"{monthly_diff_smart_heater:.2f}",
-                                    f"{monthly_diff_thermo_heater:.2f}",
-                                    f"{monthly_diff_smart_thermo:.2f}"
+                                'Fogyasztás különbség éves szinten (kWh)': [
+                                    f"{smart_heater_consumption_diff_total:.2f}",
+                                    f"{thermo_heater_consumption_diff_total:.2f}",
+                                    f"{smart_thermo_consumption_diff_total:.2f}"
                                 ],
                                 'Éves költség különbség (Ft)': [
                                     f"{yearly_diff_smart_heater:.2f}",
@@ -541,9 +551,13 @@ def show_consumption_cost_savings(start_date, end_date):
                             
                             investment_cost = st.session_state.get('investment_cost', 0.0)
                             
-                            if investment_cost > 0 and smart_savings_cost > 0:
+                            # Megtérülési vizsgálat dinamikus vs termosztátos megtakarítás alapján
+                            # A smart_vs_thermo_savings_cost pozitív, ha a dinamikus takarít meg
+                            daily_savings_smart_vs_thermo = smart_vs_thermo_savings_cost if smart_vs_thermo_savings_cost > 0 else 0
+                            
+                            if investment_cost > 0 and daily_savings_smart_vs_thermo > 0:
                                 # Megtérülési idő számítása napokban
-                                payback_days = investment_cost / smart_savings_cost
+                                payback_days = investment_cost / daily_savings_smart_vs_thermo
                                 payback_months = payback_days / 30
                                 payback_years = payback_days / 365
                                 
@@ -568,7 +582,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                 max_days = min(int(payback_days * 1.2), 365 * 5)  # 20% túllépés vagy max 5 év
                                 days_range = list(range(0, max_days + 1, 7))  # Hetente egy pont
                                 
-                                cumulative_savings = [smart_savings_cost * day for day in days_range]
+                                cumulative_savings = [daily_savings_smart_vs_thermo * day for day in days_range]
                                 investment_line = [investment_cost] * len(days_range)
                                 
                                 # Hónapok számítása a diagramhoz
@@ -631,7 +645,7 @@ def show_consumption_cost_savings(start_date, end_date):
                                 
                                 
                                 # Ár változások beolvasása a sidebar-ból
-                                sensitivity_input = st.session_state.get('sensitivity_price_changes', '-50,-20,-10,0,10,20,50')
+                                sensitivity_input = st.session_state.get('sensitivity_price_changes', '-300,-200,-100,-50,-20,-10,0,10,20,50,100,200,300')
                                 
                                 # Ár változások feldolgozása
                                 try:
@@ -645,8 +659,8 @@ def show_consumption_cost_savings(start_date, end_date):
                                     st.warning(f"Érvénytelen formátum az ár változásokhoz: {e}. Kérjük, ellenőrizze a sidebar-ban megadott értékeket!")
                                     price_changes = [0]  # Alapértelmezett: csak 0%
                                 
-                                # Alap napi megtakarítás (jelenlegi árral)
-                                base_daily_savings = smart_savings_cost
+                                # Alap napi megtakarítás (jelenlegi árral) - dinamikus vs termosztátos
+                                base_daily_savings = daily_savings_smart_vs_thermo
                                 
                                 # Érzékenységvizsgálat számítások
                                 sensitivity_results = []
@@ -697,23 +711,34 @@ def show_consumption_cost_savings(start_date, end_date):
                                 # Érzékenységvizsgálat diagram
                                 st.write("#### Érzékenységvizsgálat diagram")
                                 
-                                # Szűrés végtelen értékekre
-                                valid_results = [r for r in sensitivity_results if r['Megtérülési idő (hónap)'] != float('inf')]
+                                # Végtelen értékek helyett nagy, de véges értéket használunk a diagramhoz
+                                MAX_PAYBACK_MONTHS = 1000  # Maximum megtérülési idő (hónap) a diagramon
                                 
-                                if valid_results:
-                                    price_changes_valid = [r['Ár változás (%)'] for r in valid_results]
-                                    payback_months_valid = [r['Megtérülési idő (hónap)'] for r in valid_results]
+                                # Összes eredmény feldolgozása (végtelen értékeket nagy értékre cseréljük)
+                                all_results = []
+                                for r in sensitivity_results:
+                                    result = r.copy()
+                                    if result['Megtérülési idő (hónap)'] == float('inf'):
+                                        result['Megtérülési idő (hónap)'] = MAX_PAYBACK_MONTHS
+                                    all_results.append(result)
+                                
+                                if all_results:
+                                    price_changes_all = [r['Ár változás (%)'] for r in all_results]
+                                    payback_months_all = [r['Megtérülési idő (hónap)'] for r in all_results]
+                                    
+                                    # Változó szín a végtelen értékekhez
+                                    colors = ['red' if r['Megtérülési idő (hónap)'] == MAX_PAYBACK_MONTHS else '#1f77b4' for r in all_results]
                                     
                                     fig_sensitivity = go.Figure()
                                     
-                                    # Megtérülési idő vonal
+                                    # Megtérülési idő vonal - minden értékkel
                                     fig_sensitivity.add_trace(go.Scatter(
-                                        x=price_changes_valid,
-                                        y=payback_months_valid,
+                                        x=price_changes_all,
+                                        y=payback_months_all,
                                         mode='lines+markers',
                                         name='Megtérülési idő',
                                         line=dict(color='#1f77b4', width=3),
-                                        marker=dict(size=8, color='#1f77b4'),
+                                        marker=dict(size=8, color=colors),
                                         hovertemplate='Ár változás: %{x:.1f}%<br>Megtérülési idő: %{y:.2f} hónap<extra></extra>'
                                     ))
                                     
@@ -732,6 +757,16 @@ def show_consumption_cost_savings(start_date, end_date):
                                         hovertemplate=f'Alapértelmezett ár<br>Megtérülési idő: {payback_months:.2f} hónap<extra></extra>'
                                     ))
                                     
+                                    # X tengely tartomány beállítása, hogy minden érték látható legyen
+                                    x_min = min(price_changes_all) if price_changes_all else -300
+                                    x_max = max(price_changes_all) if price_changes_all else 300
+                                    # Hozzáadunk egy kis margót
+                                    x_range = [x_min - (x_max - x_min) * 0.05, x_max + (x_max - x_min) * 0.05]
+                                    
+                                    # Y tengely beállítása, hogy a nagy értékek is láthatók legyenek
+                                    y_max = max(payback_months_all) if payback_months_all else MAX_PAYBACK_MONTHS
+                                    y_range = [0, y_max * 1.1]  # 10% margó felül
+                                    
                                     fig_sensitivity.update_layout(
                                         title="Érzékenységvizsgálat: Energiaár változások hatása a megtérülési időre",
                                         xaxis_title="Ár változás (%)",
@@ -739,6 +774,14 @@ def show_consumption_cost_savings(start_date, end_date):
                                         hovermode='x unified',
                                         template="plotly_white",
                                         height=500,
+                                        xaxis=dict(
+                                            range=x_range,
+                                            autorange=False
+                                        ),
+                                        yaxis=dict(
+                                            range=y_range,
+                                            autorange=False
+                                        ),
                                         legend=dict(
                                             yanchor="top",
                                             y=0.99,
@@ -750,8 +793,8 @@ def show_consumption_cost_savings(start_date, end_date):
                                     st.plotly_chart(fig_sensitivity, use_container_width=True)
                                     
             
-                            elif investment_cost > 0 and smart_savings_cost <= 0:
-                                st.warning("A dinamikus fűtésvezérlő jelenleg nem takarít meg pénzt a folyamatos működés eseténhez képest, így a beruházás nem térül meg.")
+                            elif investment_cost > 0 and daily_savings_smart_vs_thermo <= 0:
+                                st.warning("A dinamikus fűtésvezérlő jelenleg nem takarít meg pénzt a termosztátos vezérlőhöz képest, így a beruházás nem térül meg.")
                             elif investment_cost == 0:
                                 st.info("Kérjük, adjon meg egy beruházási költséget a sidebar-ban a megtérülési számítás megjelenítéséhez.")
                             
