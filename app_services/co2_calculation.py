@@ -194,5 +194,5 @@ def fetch_co2_emission_data(days_to_show=10, api_key=None, table_name="dfv_smart
         return co2_hourly_df, co2_hourly_with_power, daily_co2_df, power_co2_pairs
         
     except Exception as e:
-        st.error(f"Hiba az energiaadatok lekérdezésekor: {e}")
+        st.error(f"❌Hiba az energiaadatok lekérdezésekor: {e}")
         return co2_hourly_df, None, None, None
