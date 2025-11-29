@@ -41,12 +41,8 @@ def show_co2_savings():
         # CO2 adatok lekérése
         days_to_show = 10
         
-        # API kulcs betöltése a Streamlit secrets-ből
-        try:
-            api_key = st.secrets["api"]["electricity_maps_token"]
-        except (KeyError, FileNotFoundError) as e:
-            st.error(f"Hiányzik a .streamlit/secrets.toml fájl vagy az API kulcs. Hiba: {e}")
-            api_key = None
+        # API kulcs már nem szükséges (fix CO2 intenzitást használunk)
+        api_key = None
         
         # Session state inicializálása CO2 adatokhoz
         if 'co2_cached_days' not in st.session_state:
@@ -78,7 +74,7 @@ def show_co2_savings():
         # Mindkét tábla adatainak lekérése a diagramhoz
         auto_refresh = ('co2_daily_dataframe_smart' not in st.session_state) or ('co2_daily_dataframe_thermo' not in st.session_state)
         
-        if auto_refresh and api_key:
+        if auto_refresh:
             with st.spinner("CO2 adatok lekérése folyamatban..."):
                 # Dinamikus fűtésvezérlő adatok
                 result_smart = fetch_co2_emission_data(days_to_show, api_key, "dfv_smart_db", heater_power)
@@ -99,7 +95,7 @@ def show_co2_savings():
         # Frissítjük, ha nincs cache-ben, vagy ha változott a tábla
         auto_refresh_selected = ('co2_hourly_dataframe' not in st.session_state) or ('co2_daily_dataframe' not in st.session_state) or (st.session_state.co2_cached_table != selected_table)
         
-        if auto_refresh_selected and api_key:
+        if auto_refresh_selected:
             with st.spinner("CO2 adatok lekérése folyamatban..."):
                 result = fetch_co2_emission_data(days_to_show, api_key, selected_table, heater_power)
                 
