@@ -4,7 +4,7 @@ from app_pages.energy_prediction_page import show_energy_prediction_page
 from app_pages.savings_page import show_savings_page
 from app_services.eon_scraper import scrape_eon_prices
 
-"""Session state inicializálása."""
+
 def _initialize_session_state():
     if "page" not in st.session_state:
         st.session_state.page = "Főoldal"
@@ -15,7 +15,7 @@ def _initialize_session_state():
     if 'sensitivity_price_changes' not in st.session_state:
         st.session_state.sensitivity_price_changes = "-75,-50,-20,-10,0,10,20,50,75,100,200,300"
 
-"""Oldalsáv navigáció beállítása."""
+
 def _setup_sidebar_navigation():
     st.sidebar.title("DFV Monitoring")
     st.sidebar.markdown("---")
@@ -32,7 +32,6 @@ def _setup_sidebar_navigation():
     st.sidebar.markdown("---")
 
 
-"""Fűtőteljesítmény input beállítása."""
 def _setup_heater_power_input():
     st.sidebar.write("### Fűtőteljesítmény beállítása")
     heater_power = st.sidebar.number_input(
@@ -46,7 +45,7 @@ def _setup_heater_power_input():
     )
     st.session_state.heater_power = heater_power
 
-"""Beruházási költség input beállítása."""
+
 def _setup_investment_cost_input():
     investment_cost = st.sidebar.number_input(
         "Beruházási költség (Ft):",
@@ -59,7 +58,7 @@ def _setup_investment_cost_input():
     st.session_state.investment_cost = investment_cost
     return investment_cost
 
-"""Érzékenységvizsgálat input beállítása."""
+
 def _setup_sensitivity_input(investment_cost):
     st.sidebar.write("### Érzékenységvizsgálat beállítások")
     is_disabled = investment_cost <= 0
@@ -77,13 +76,13 @@ def _setup_sensitivity_input(investment_cost):
     else:
         st.sidebar.info("⚠️ Adja meg a beruházási költséget az érzékenységvizsgálat használatához.")
 
-"""Megtakarítások oldal sidebar beállítása."""
+
 def _setup_savings_sidebar():
     _setup_heater_power_input()
     investment_cost = _setup_investment_cost_input()
     _setup_sensitivity_input(investment_cost)
 
-"""E.ON árak automatikus lekérése."""
+
 def _load_eon_prices():
     if 'loss_prices' not in st.session_state:
         with st.spinner("E.ON árak automatikus lekérése..."):
@@ -100,7 +99,6 @@ def _load_eon_prices():
                 st.session_state.loss_price = loss_prices['2025']
 
 
-"""Oldal megjelenítése a kiválasztott oldal alapján."""
 def _display_page():
     page = st.session_state.page
     
@@ -112,7 +110,6 @@ def _display_page():
         show_savings_page()
 
 
-"""Fő függvény az alkalmazás futtatásához."""
 def main():
     _initialize_session_state()
     _setup_sidebar_navigation()
