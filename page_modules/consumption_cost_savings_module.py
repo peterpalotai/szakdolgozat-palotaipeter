@@ -166,9 +166,85 @@ def _calculate_smart_vs_thermo_savings(smart_daily_energy_df, thermostat_daily_e
     
     return smart_vs_thermo_savings_energy, smart_vs_thermo_savings_cost, smart_thermo_comparison
 
-"""Vezérlő táblázat megjelenítése."""
+"Vezérlő táblázat oldal méret beállítása."
+def _setup_controller_table_page_size():
+    if "controller_table_page_size" not in st.session_state:
+        st.session_state.controller_table_page_size = 5
+    if "prev_controller_table_page_size" not in st.session_state:
+        st.session_state.prev_controller_table_page_size = st.session_state.controller_table_page_size
+    if "controller_table_offset" not in st.session_state:
+        st.session_state.controller_table_offset = 0
+    
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        page_size_options = [5, 15, 25]
+        current_page_size = st.session_state.controller_table_page_size
+        try:
+            current_index = page_size_options.index(current_page_size)
+        except ValueError:
+            current_index = 0
+        
+        page_size = st.selectbox("Elemek száma:", page_size_options, index=current_index, key="controller_table_page_size_selector")
+        
+        if page_size != st.session_state.prev_controller_table_page_size:
+            st.session_state.controller_table_offset = 0
+            st.session_state.prev_controller_table_page_size = page_size
+        
+        st.session_state.controller_table_page_size = page_size
+    with col2:
+        st.write("")
+
+
+"Vezérlő táblázat lapozás vezérlőelemek megjelenítése."
+def _display_controller_table_pagination(total_rows):
+    if "controller_table_offset" not in st.session_state:
+        st.session_state.controller_table_offset = 0
+    
+    col1, col2, col3, col4, col5, col6, col7 = st.columns([2, 0.2, 0.2, 0.2, 0.2, 0.1, 0.3])
+    
+    with col1:
+        st.write("")
+    with col2:
+        if st.button("⏮️", key="controller_table_first_page"):
+            st.session_state.controller_table_offset = 0
+            st.rerun()
+    with col3:
+        current_page_size = st.session_state.controller_table_page_size
+        if st.button("⬅️", key="controller_table_prev_page"):
+            if st.session_state.controller_table_offset >= current_page_size:
+                st.session_state.controller_table_offset -= current_page_size
+                st.rerun()
+    with col4:
+        current_page_size = st.session_state.controller_table_page_size
+        next_offset = st.session_state.controller_table_offset + current_page_size
+        has_next_page = next_offset < total_rows
+        
+        if st.button("➡️", disabled=not has_next_page, key="controller_table_next_page"):
+            st.session_state.controller_table_offset = next_offset
+            st.rerun()
+    with col5:
+        current_page_size = st.session_state.controller_table_page_size
+        last_page_offset = ((total_rows - 1) // current_page_size) * current_page_size
+        is_on_last_page = st.session_state.controller_table_offset >= last_page_offset
+        
+        if st.button("⏭️", disabled=is_on_last_page, key="controller_table_last_page"):
+            st.session_state.controller_table_offset = last_page_offset
+            st.rerun()
+    with col6:
+        st.write("")
+    with col7:
+        current_page_size = st.session_state.controller_table_page_size
+        current_page = (st.session_state.controller_table_offset // current_page_size) + 1
+        total_pages = (total_rows + current_page_size - 1) // current_page_size
+        st.write(f" **Oldal:** {current_page} / {total_pages}")
+
+
+"Vezérlő táblázat megjelenítése."
 def _display_controller_table(smart_daily_energy_df, thermostat_daily_energy_df, 
                             loss_price_2024, loss_price_2025):
+    if "prev_controller_choice" not in st.session_state:
+        st.session_state.prev_controller_choice = None
+    
     col1, col2 = st.columns([1, 3])
     with col1:
         controller_choice = st.selectbox(
@@ -176,6 +252,10 @@ def _display_controller_table(smart_daily_energy_df, thermostat_daily_energy_df,
             ["Dinamikus fűtésvezérlő", "Termosztátos vezérlő"],
             key="controller_comparison_choice"
         )
+    
+    if controller_choice != st.session_state.prev_controller_choice:
+        st.session_state.controller_table_offset = 0
+        st.session_state.prev_controller_choice = controller_choice
     
     if controller_choice == "Dinamikus fűtésvezérlő":
         selected_df = smart_daily_energy_df[['date', 'daily_energy_kwh', 'year']].copy()
@@ -195,8 +275,16 @@ def _display_controller_table(smart_daily_energy_df, thermostat_daily_energy_df,
     selected_df = selected_df[['date', 'daily_energy_kwh', 'Költség (Ft)']]
     selected_df.columns = ['Dátum', 'Fogyasztás (kWh)', 'Költség (Ft)']
     
+    _setup_controller_table_page_size()
+    
+    total_rows = len(selected_df)
+    current_page_size = st.session_state.controller_table_page_size
+    start_idx = st.session_state.controller_table_offset
+    end_idx = min(start_idx + current_page_size, total_rows)
+    selected_df_paginated = selected_df.iloc[start_idx:end_idx]
+    
     st.dataframe(
-        selected_df,
+        selected_df_paginated,
         use_container_width=True,
         hide_index=True,
         column_config={
@@ -205,6 +293,8 @@ def _display_controller_table(smart_daily_energy_df, thermostat_daily_energy_df,
             "Költség (Ft)": st.column_config.NumberColumn("Költség (Ft)", format="%.2f", width="medium")
         }
     )
+    
+    _display_controller_table_pagination(total_rows)
 
 """Folyamatos működés metrikák megjelenítése."""
 def _display_heater_metrics(smart_daily_energy_df, heater_daily_energy, 

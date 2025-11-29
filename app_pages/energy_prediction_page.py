@@ -32,7 +32,7 @@ def _load_css():
 "E.ON árak státusz megjelenítése."
 def _display_eon_status():
     if 'loss_prices' in st.session_state and st.session_state.loss_prices is not None:
-        st.success("✅ Árak elérhetők")
+        st.success("✅ Elérhető árak naprakészek")
     elif 'eon_error' in st.session_state and st.session_state.eon_error:
         st.error(f"❌ E.ON árak lekérése sikertelen: {st.session_state.eon_error}")
     else:
@@ -327,11 +327,7 @@ def _fill_may_data(daily_df, yearly_avg_value, yearly_avg_internal_temp,
         daily_df = pd.concat([daily_df_without_may, complete_may_df], ignore_index=True)
         daily_df = daily_df.sort_values('datetime').reset_index(drop=True)
         
-        if missing_days_count > 0:
-            st.info(f"ℹ️ Májusi adatok: {len(complete_may_df)} nap (összesen), ebből {missing_days_count} nap kitöltve éves átlaggal ({yearly_avg_value:.4f} kWh).")
-        else:
-            st.info(f"ℹ️ Májusi adatok: {len(complete_may_df)} nap, minden nap rendelkezik mért adattal.")
-    
+       
     return daily_df
 
 
