@@ -380,10 +380,19 @@ def _train_arima_model(daily_df, forecast_days, forecast_start_date, forecast_en
     if len(exog) >= forecast_days:
         exog_forecast_values = exog.iloc[-forecast_days:].values
     else:
-        last_exog = exog.iloc[-1:].values
-        exog_forecast_values = np.tile(last_exog, (forecast_days, 1))
+        avg_window = min(14, len(exog))
+        if avg_window > 0:
+            avg_exog = exog.iloc[-avg_window:].mean().values
+        else:
+            avg_exog = exog.mean().values
+        exog_forecast_values = np.tile(avg_exog, (forecast_days, 1))
     
     exog_forecast = pd.DataFrame(exog_forecast_values, columns=exog.columns, index=forecast_dates)
+    
+    for col in exog_forecast.columns:
+        if exog_forecast[col].isna().any():
+            col_mean = exog[col].mean()
+            exog_forecast[col] = exog_forecast[col].fillna(col_mean)
     forecast = fitted_model.forecast(steps=forecast_days, exog=exog_forecast)
     conf_int = fitted_model.get_forecast(steps=forecast_days, exog=exog_forecast).conf_int(alpha=0.05)
     
@@ -393,7 +402,12 @@ def _train_arima_model(daily_df, forecast_days, forecast_start_date, forecast_en
         'lower_bound': conf_int.iloc[:, 0],
         'upper_bound': conf_int.iloc[:, 1]
     })
+    
+    forecast_df['forecast'] = forecast_df['forecast'].clip(lower=0)
     forecast_df['lower_bound'] = forecast_df['lower_bound'].clip(lower=0)
+    
+    if forecast_df['forecast'].min() < 0:
+        forecast_df.loc[forecast_df['forecast'] < 0, 'forecast'] = 0
     
     return forecast_df
 

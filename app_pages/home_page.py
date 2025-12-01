@@ -370,7 +370,6 @@ def _display_chart_section(df_display, selected_table):
     
     custom_start_date = None
     custom_end_date = None
-    generate_chart = False
     
     if time_interval == "Egyéni intervallum":
         col3, col4 = st.columns(2)
@@ -382,13 +381,11 @@ def _display_chart_section(df_display, selected_table):
             custom_end_date = st.date_input("Végdátum:", value=datetime(2025, 8, 21).date(),
                                            min_value=datetime(2024, 8, 19).date(),
                                            max_value=datetime(2025, 8, 21).date(), key="custom_end_date")
-        if st.button("Diagram generálása", type="primary"):
-            generate_chart = True
-            if f"{selected_table}_{selected_column}_{time_interval}_{custom_start_date}_{custom_end_date}" in st.session_state.chart_data_cache:
-                del st.session_state.chart_data_cache[f"{selected_table}_{selected_column}_{time_interval}_{custom_start_date}_{custom_end_date}"]
-    
-    if time_interval == "Egyéni intervallum" and not generate_chart:
-        return
+        
+        if custom_start_date and custom_end_date:
+            cache_key = f"{selected_table}_{time_interval}_{custom_start_date}_{custom_end_date}"
+            if cache_key in st.session_state.chart_data_cache:
+                del st.session_state.chart_data_cache[cache_key]
     
     chart_data = _fetch_chart_data(selected_table, time_interval, custom_start_date, custom_end_date)
     
