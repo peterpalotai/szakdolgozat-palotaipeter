@@ -566,7 +566,6 @@ def show_energy_prediction_page():
     st.write("# Energiafogyasztás és megtakarítás előrejelzés")
     
     _display_eon_status()
-    st.write("---")
     _initialize_session_state()
     
     selected_table = "dfv_smart_db"
