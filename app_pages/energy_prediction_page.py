@@ -577,7 +577,7 @@ def _display_forecast_results():
 "Energiafogyasztás és megtakarítás előrejelzés oldal."
 def show_energy_prediction_page():
     _load_css()
-    st.write("# Energiafogyasztás és megtakarítás előrejelzés")
+    st.write("# Energiafogyasztás és megtakarítás előrejelzés - DFV")
     
     _display_eon_status()
     _initialize_session_state()
