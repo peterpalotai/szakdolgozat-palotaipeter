@@ -9,17 +9,17 @@ from page_modules.consumption_cost_savings_module import show_consumption_cost_s
 DEFAULT_START_DATE = datetime(2024, 8, 19).date()
 DEFAULT_END_DATE = datetime(2025, 8, 21).date()
 
-
+    
 "CSS fájl betöltése."
 def _load_css():
     try:
-        with open('styles.css', 'r', encoding='utf-8') as f:
-            css_content = f.read()
+    with open('styles.css', 'r', encoding='utf-8') as f:
+        css_content = f.read()
         st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
     except FileNotFoundError:
         pass
-
-
+    
+    
 "E.ON árak státusz megjelenítése."
 def _display_eon_status():
     if 'loss_prices' in st.session_state and st.session_state.loss_prices is not None:
@@ -28,13 +28,13 @@ def _display_eon_status():
         st.error(f"❌ E.ON árak lekérése sikertelen: {st.session_state.eon_error}")
     else:
         st.warning("⚠️ E.ON árak nem érhetők el")
-
-
+    
+    
 "Megtakarítás típus session state inicializálása."
 def _initialize_savings_type():
     if "savings_type" not in st.session_state:
         st.session_state.savings_type = "CO2 megtakarítások"
-
+    
 
 "Megtakarítás típus kiválasztó gombok megjelenítése."
 def _display_savings_type_selection():
@@ -54,7 +54,7 @@ def _display_savings_type_selection():
                     type="primary" if is_cost_selected else "secondary"):
             st.session_state.savings_type = "Fogyasztási és költség megtakarítások"
             st.rerun()
-
+    
 
 "Megfelelő megtakarítás modul megjelenítése."
 def _display_savings_content():

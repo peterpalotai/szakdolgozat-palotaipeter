@@ -12,7 +12,7 @@ try:
 except ImportError:
     ARIMA_AVAILABLE = False
 
-from app_services.database import test_db_connection, execute_query
+from app_services.database import execute_query
 from page_modules.database_queries import get_energy_prediction_data
 
 FORECAST_YEAR = 2026
@@ -567,17 +567,8 @@ def show_energy_prediction_page():
     
     _display_eon_status()
     st.write("---")
-    
-    if st.button("Adatbázis teszt"):
-        if test_db_connection():
-            st.success("Sikeres csatlakozás")
-        else:
-            st.error("Sikertelen csatlakozás")
-    
-    st.write("---")
     _initialize_session_state()
     
-    st.write("## Adatok kiválasztása")
     selected_table = "dfv_smart_db"
     
     st.write("---")

@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timedelta, time
-from app_services.database import test_db_connection, execute_query
+from app_services.database import execute_query
 import os
 import sys
 
@@ -616,12 +616,6 @@ def _fetch_table_data(selected_table):
 def show_home_page():
     _load_css()
     st.write("# Főoldal")
-    
-    if st.button("Adatbázis teszt"):
-        if test_db_connection():
-            st.success("Sikeres csatlakozás")
-        else:
-            st.error("Sikertelen csatlakozás")
     
     st.write("---")
     st.write("## Adatbázis lekérdezés")
