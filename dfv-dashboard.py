@@ -6,8 +6,8 @@ from app_services.eon_scraper import scrape_eon_prices
 
 
 def _initialize_session_state():
-if "page" not in st.session_state:
-    st.session_state.page = "Főoldal"
+    if "page" not in st.session_state:
+        st.session_state.page = "Főoldal"
     if 'heater_power' not in st.session_state:
         st.session_state.heater_power = 60.0
     if 'investment_cost' not in st.session_state:
@@ -17,19 +17,19 @@ if "page" not in st.session_state:
 
 
 def _setup_sidebar_navigation():
-st.sidebar.title("DFV Monitoring")
-st.sidebar.markdown("---")
+    st.sidebar.title("DFV Monitoring")
+    st.sidebar.markdown("---")
 
-if st.sidebar.button("Főoldal", use_container_width=True):
-    st.session_state.page = "Főoldal"
+    if st.sidebar.button("Főoldal", use_container_width=True):
+        st.session_state.page = "Főoldal"
 
-if st.sidebar.button("Megtakarítások", use_container_width=True):
-    st.session_state.page = "Megtakarítások"
+    if st.sidebar.button("Megtakarítások", use_container_width=True):
+        st.session_state.page = "Megtakarítások"
 
-if st.sidebar.button("Energiafogyasztás és megtakarítás előrejelzés", use_container_width=True):
-    st.session_state.page = "Energiafogyasztás és megtakarítás előrejelzés"
+    if st.sidebar.button("Energiafogyasztás és megtakarítás előrejelzés", use_container_width=True):
+        st.session_state.page = "Energiafogyasztás és megtakarítás előrejelzés"
 
-st.sidebar.markdown("---")
+    st.sidebar.markdown("---")
 
 
 def _setup_heater_power_input():
@@ -84,30 +84,30 @@ def _setup_savings_sidebar():
 
 
 def _load_eon_prices():
-if 'loss_prices' not in st.session_state:
-    with st.spinner("E.ON árak automatikus lekérése..."):
-        loss_prices, error = scrape_eon_prices()
-    
-    if error:
-        st.session_state.loss_prices = None
-        st.session_state.eon_error = error
-    else:
-        st.session_state.loss_prices = loss_prices 
-        st.session_state.eon_error = None
+    if 'loss_prices' not in st.session_state:
+        with st.spinner("E.ON árak automatikus lekérése..."):
+            loss_prices, error = scrape_eon_prices()
         
-        if loss_prices and '2025' in loss_prices:
-            st.session_state.loss_price = loss_prices['2025']
+        if error:
+            st.session_state.loss_prices = None
+            st.session_state.eon_error = error
+        else:
+            st.session_state.loss_prices = loss_prices 
+            st.session_state.eon_error = None
+            
+            if loss_prices and '2025' in loss_prices:
+                st.session_state.loss_price = loss_prices['2025']
 
 
 def _display_page():
-page = st.session_state.page
+    page = st.session_state.page
 
-if page == "Főoldal":
-    show_home_page()
-elif page == "Energiafogyasztás és megtakarítás előrejelzés":
-    show_energy_prediction_page()
-elif page == "Megtakarítások":
-    show_savings_page()
+    if page == "Főoldal":
+        show_home_page()
+    elif page == "Energiafogyasztás és megtakarítás előrejelzés":
+        show_energy_prediction_page()
+    elif page == "Megtakarítások":
+        show_savings_page()
 
 
 def main():

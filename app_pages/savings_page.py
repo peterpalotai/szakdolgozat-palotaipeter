@@ -13,8 +13,8 @@ DEFAULT_END_DATE = datetime(2025, 8, 21).date()
 "CSS fájl betöltése."
 def _load_css():
     try:
-    with open('styles.css', 'r', encoding='utf-8') as f:
-        css_content = f.read()
+        with open('styles.css', 'r', encoding='utf-8') as f:
+            css_content = f.read()
         st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
     except FileNotFoundError:
         pass
