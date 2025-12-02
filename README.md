@@ -13,7 +13,7 @@ pip install -r requirements.txt
 ```toml
 [database]
 host = "your-postgresql-host"
-port = "5432"
+port = "your-postgresql-port-number"
 database = "your-database-name"
 user = "your-username"
 password = "your-password"
